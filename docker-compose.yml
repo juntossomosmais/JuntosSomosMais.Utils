@@ -1,0 +1,17 @@
+services:
+  integration-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: [ "./scripts/start-tests.sh" ]
+
+  lint-formatter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+    # Uncomment the following line to run the checker
+    # command: [ "./scripts/start-check-formatting.sh" ]
+    # Uncomment the following line to run the formatter
+    command: [ "./scripts/start-formatter.sh" ]

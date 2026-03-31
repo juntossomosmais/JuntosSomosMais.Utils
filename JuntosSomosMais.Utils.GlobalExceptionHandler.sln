@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{1ED936F9-0D06-4A85-B506-D260BA77E0FB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.GlobalExceptionHandler", "src\JuntosSomosMais.Utils.GlobalExceptionHandler\JuntosSomosMais.Utils.GlobalExceptionHandler.csproj", "{9ACA7FDE-FED8-4338-AE87-58570D2F83BD}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{4F7F46B7-3CAE-4AE2-A31D-0E3157E5D2B5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.GlobalExceptionHandler.Tests", "tests\JuntosSomosMais.Utils.GlobalExceptionHandler.Tests\JuntosSomosMais.Utils.GlobalExceptionHandler.Tests.csproj", "{1AF2B329-48FE-456A-951E-4246DF0FCEB9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9ACA7FDE-FED8-4338-AE87-58570D2F83BD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9ACA7FDE-FED8-4338-AE87-58570D2F83BD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9ACA7FDE-FED8-4338-AE87-58570D2F83BD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9ACA7FDE-FED8-4338-AE87-58570D2F83BD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1AF2B329-48FE-456A-951E-4246DF0FCEB9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1AF2B329-48FE-456A-951E-4246DF0FCEB9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1AF2B329-48FE-456A-951E-4246DF0FCEB9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1AF2B329-48FE-456A-951E-4246DF0FCEB9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{9ACA7FDE-FED8-4338-AE87-58570D2F83BD} = {1ED936F9-0D06-4A85-B506-D260BA77E0FB}
+		{1AF2B329-48FE-456A-951E-4246DF0FCEB9} = {4F7F46B7-3CAE-4AE2-A31D-0E3157E5D2B5}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,10 @@
+*
+!src
+!tests
+**/bin
+**/obj
+!JuntosSomosMais.Utils.GlobalExceptionHandler.sln
+!scripts/*.sh
+!runsettings.xml
+!dotnet-tools.json
+!global.json
