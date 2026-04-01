@@ -1,6 +1,6 @@
 # JuntosSomosMais.Utils.GlobalExceptionHandler
 
-ASP.NET Core 8+ global exception handler built on the native `IExceptionHandler` infrastructure. Catches unhandled exceptions and returns a consistent, user-friendly JSON response with a request ID for traceability.
+ASP.NET Core 8+ global exception handler built on the native `IExceptionHandler` infrastructure. Catches unhandled exceptions and returns a consistent, user-friendly JSON response with a request ID for traceability. Also standardizes validation error responses from FluentValidation and ASP.NET model-state validation.
 
 ## Requirements
 
@@ -12,6 +12,8 @@ ASP.NET Core 8+ global exception handler built on the native `IExceptionHandler`
 ```bash
 dotnet add package JuntosSomosMais.Utils.GlobalExceptionHandler
 ```
+
+The package includes `FluentValidation` as a transitive dependency.
 
 ## Quick start
 
@@ -25,9 +27,15 @@ builder.Services.AddCustomExceptionHandler();
 app.UseExceptionHandler();
 ```
 
-That's it. All unhandled exceptions now return a structured 500 response with a friendly message and a request ID.
+A single call to `AddCustomExceptionHandler()` configures:
 
-## Response format
+1. **Exception handling** via `IExceptionHandler` -- catches unhandled exceptions and returns structured JSON.
+2. **Validation error responses** -- overrides `InvalidModelStateResponseFactory` so that model-state errors (from data annotations, FluentValidation auto-validation, or model binding) return the same structured format.
+3. **FluentValidation exception handling** -- catches `FluentValidation.ValidationException` (thrown by `ValidateAndThrowAsync`) and returns field-level errors.
+
+## Response formats
+
+### Exception responses
 
 Every unhandled exception produces the same shape:
 
@@ -44,6 +52,25 @@ Every unhandled exception produces the same shape:
 
 - `requestId` is the ASP.NET Core `HttpContext.TraceIdentifier`, useful for correlating with server-side logs.
 - `msg` is a user-friendly message that embeds the request ID. The raw exception message is **never** exposed to the client.
+
+### Validation error responses
+
+Model-state errors (from `[Required]`, `[Range]`, FluentValidation auto-validation, etc.) and `FluentValidation.ValidationException` both produce:
+
+```json
+{
+  "type": "VALIDATION_ERRORS",
+  "statusCode": 400,
+  "error": {
+    "Name": ["The field [Name] cannot be empty or null"],
+    "Email": ["The field [Email] must be a valid email address"]
+  }
+}
+```
+
+- `type` is always `"VALIDATION_ERRORS"`.
+- `error` is a dictionary mapping field names to arrays of error messages.
+- This format is consistent regardless of whether the error came from model-state validation (before the controller action) or from `ValidateAndThrowAsync` (during the action).
 
 ## Mapping exceptions to HTTP status codes
 
@@ -122,6 +149,64 @@ public class InvalidStateException : DomainException
 }
 ```
 
+## Validation handling
+
+### How it works
+
+`AddCustomExceptionHandler()` configures two validation interception points:
+
+1. **`InvalidModelStateResponseFactory`** -- intercepts model-state validation failures before the controller action runs. This covers data annotations (`[Required]`, `[Range]`, etc.), FluentValidation auto-validation (if configured by the consumer), and model binding errors (invalid JSON, type mismatches).
+
+2. **`FluentValidation.ValidationException`** -- caught by the `IExceptionHandler` when `ValidateAndThrowAsync()` is used inside a controller action.
+
+Both paths produce the same `{ type, statusCode, error }` shape.
+
+### Using FluentValidation with manual validation (recommended)
+
+FluentValidation now recommends [manual validation](https://docs.fluentvalidation.net/en/latest/aspnet.html). Register your validators and inject them into controllers:
+
+```csharp
+// Program.cs
+builder.Services.AddScoped<IValidator<CreatePersonRequest>, CreatePersonRequestValidator>();
+builder.Services.AddCustomExceptionHandler();
+
+app.UseExceptionHandler();
+```
+
+```csharp
+// Controller — option A: check result manually
+[HttpPost]
+public async Task<IActionResult> CreateAsync(
+    CreatePersonRequest request,
+    [FromServices] IValidator<CreatePersonRequest> validator)
+{
+    var result = await validator.ValidateAsync(request);
+    if (!result.IsValid)
+    {
+        // Throw a domain exception or return your own response.
+        // If you throw, the IExceptionHandler catches it.
+        throw new DomainException(result.Errors.First().ErrorMessage);
+    }
+    // ...
+}
+
+// Controller — option B: use ValidateAndThrowAsync
+[HttpPost]
+public async Task<IActionResult> CreateAsync(
+    CreatePersonRequest request,
+    [FromServices] IValidator<CreatePersonRequest> validator)
+{
+    await validator.ValidateAndThrowAsync(request);
+    // If validation fails, ValidationException is thrown.
+    // The handler catches it and returns { type, statusCode, error } with field-level details.
+    // ...
+}
+```
+
+### Important: `InvalidModelStateResponseFactory` override
+
+`AddCustomExceptionHandler()` overrides `ApiBehaviorOptions.InvalidModelStateResponseFactory` to standardize validation responses. If your application has a custom `InvalidModelStateResponseFactory` (e.g., a `MvcBuilderExtension.ConfigureInvalidModelStateResponse()`), you should **remove it** after adopting this library -- the library now handles it for you.
+
 ### Migrating from `custom-exception-middleware`
 
 If you are migrating from the `CustomExceptionMiddleware` NuGet package, replace the library's exception classes with your own annotated classes:
@@ -138,13 +223,14 @@ If you are migrating from the `CustomExceptionMiddleware` NuGet package, replace
 1. Remove the `CustomExceptionMiddleware` package.
 2. Install `JuntosSomosMais.Utils.GlobalExceptionHandler`.
 3. Create your own exception classes with the `[ExceptionStatusCode]` attribute (see examples above).
-4. Replace `app.UseCustomExceptionMiddleware()` with:
+4. Remove any custom `MvcBuilderExtension.ConfigureInvalidModelStateResponse()` -- the library handles it.
+5. Replace `app.UseCustomExceptionMiddleware()` with:
    ```csharp
    builder.Services.AddCustomExceptionHandler();
    // ...
    app.UseExceptionHandler();
    ```
-5. Update your `throw` statements to use your new exception classes.
+6. Update your `throw` statements to use your new exception classes.
 
 ## Options
 
@@ -192,11 +278,11 @@ builder.Services.AddCustomExceptionHandler(options =>
 
 ### `JsonSerializerOptions`
 
-`JsonSerializerOptions?`, default `null`. Provide a custom instance to control serialization. When `null`, the handler uses camelCase naming, `UnsafeRelaxedJsonEscaping`, and indented output. The instance is made read-only by the handler for thread safety.
+`JsonSerializerOptions?`, default `null`. Provide a custom instance to control serialization. When `null`, the handler uses camelCase naming, `UnsafeRelaxedJsonEscaping`, and indented output. The instance is made read-only by the handler for thread safety. These options are used consistently for both exception responses and validation error responses.
 
 ### `CustomizeResponse`
 
-`Func<CustomExceptionContext, object>?`, default `null`. Override the entire response body. The delegate receives a `CustomExceptionContext` and must return any object; the handler serializes it using `JsonSerializerOptions`.
+`Func<CustomExceptionContext, object>?`, default `null`. Override the entire response body. The delegate receives a `CustomExceptionContext` and must return any object; the handler serializes it using `JsonSerializerOptions`. This applies to both regular exception responses and `FluentValidation.ValidationException` responses.
 
 `CustomExceptionContext` properties:
 
@@ -237,10 +323,12 @@ Every handled exception is logged at `Error` level via `ILogger<CustomExceptionH
 ```csharp
 // Program.cs
 using JuntosSomosMais.Utils.GlobalExceptionHandler;
+using FluentValidation;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddScoped<IValidator<CreatePersonRequest>, CreatePersonRequestValidator>();
 builder.Services.AddCustomExceptionHandler(options =>
 {
     options.ViewStackTrace = builder.Environment.IsDevelopment();
@@ -271,6 +359,13 @@ public class NotFoundException : Exception
 [Route("products")]
 public class ProductsController : ControllerBase
 {
+    private readonly IValidator<CreateProductRequest> _validator;
+
+    public ProductsController(IValidator<CreateProductRequest> validator)
+    {
+        _validator = validator;
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetAsync(Guid id, [FromServices] AppDbContext db)
     {
@@ -284,8 +379,10 @@ public class ProductsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateAsync(CreateProductRequest request, [FromServices] AppDbContext db)
     {
-        // If this throws, the handler catches it and returns 500
-        // with a friendly message + requestId for support traceability.
+        // ValidateAndThrowAsync throws ValidationException if invalid.
+        // The handler catches it and returns 400 with field-level errors.
+        await _validator.ValidateAndThrowAsync(request);
+
         var product = new Product { Name = request.Name };
         db.Products.Add(product);
         await db.SaveChangesAsync();

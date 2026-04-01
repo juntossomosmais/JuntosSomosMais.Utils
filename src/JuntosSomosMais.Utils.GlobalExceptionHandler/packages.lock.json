@@ -1,6 +1,13 @@
 {
   "version": 1,
   "dependencies": {
-    "net8.0": {}
+    "net8.0": {
+      "FluentValidation": {
+        "type": "Direct",
+        "requested": "[11.*, )",
+        "resolved": "11.12.0",
+        "contentHash": "Wim3rI1nGZKO5S/lgJ0ZpD3W/uu1CECoJ8pETzC8av34ejr+jCDr4paKhSJRG0Ltcv8UjdxtYCynG+RUEfEUDA=="
+      }
+    }
   }
 }

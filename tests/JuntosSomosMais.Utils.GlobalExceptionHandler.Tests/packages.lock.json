@@ -55,6 +55,11 @@
         "resolved": "2.5.5",
         "contentHash": "AJsBBn8S00ZxdXPSIp8s+NcBQMO9tcll1UVCfGNoEi1DUH2z3f4Y1epV9nYbhgG6wFoTKJP6YuLT2MeTPV9gnA=="
       },
+      "FluentValidation": {
+        "type": "Transitive",
+        "resolved": "11.12.0",
+        "contentHash": "Wim3rI1nGZKO5S/lgJ0ZpD3W/uu1CECoJ8pETzC8av34ejr+jCDr4paKhSJRG0Ltcv8UjdxtYCynG+RUEfEUDA=="
+      },
       "Microsoft.CodeCoverage": {
         "type": "Transitive",
         "resolved": "17.8.0",
@@ -1341,7 +1346,10 @@
         }
       },
       "juntossomosmais.utils.globalexceptionhandler": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "FluentValidation": "[11.*, )"
+        }
       }
     }
   }

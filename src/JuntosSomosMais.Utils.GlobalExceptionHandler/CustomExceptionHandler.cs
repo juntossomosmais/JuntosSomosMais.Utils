@@ -3,6 +3,7 @@ using System.Collections.Frozen;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using FluentValidation;
 using JuntosSomosMais.Utils.GlobalExceptionHandler.Responses;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
@@ -55,6 +56,39 @@ public class CustomExceptionHandler : IExceptionHandler
         var endpoint = httpContext.GetEndpoint();
         if (endpoint?.Metadata.GetMetadata<IgnoreCustomExceptionAttribute>() is not null)
             return false;
+
+        if (exception is ValidationException validationException)
+        {
+            _logger.LogError(exception, "Occurred a validation exception - TraceId:{TraceId} - Message:{Message}",
+                httpContext.TraceIdentifier, exception.Message);
+
+            var errors = validationException.Errors
+                .GroupBy(e => e.PropertyName)
+                .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
+
+            var validationResponseBody = _options.CustomizeResponse is not null
+                ? _options.CustomizeResponse(new CustomExceptionContext
+                {
+                    HttpContext = httpContext,
+                    Exception = exception,
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    ExceptionType = "VALIDATION_ERRORS"
+                })
+                : new CustomValidationErrorResponse(
+                    "VALIDATION_ERRORS",
+                    StatusCodes.Status400BadRequest,
+                    errors);
+
+            httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+            httpContext.Response.ContentType = "application/json";
+
+            await httpContext.Response.WriteAsync(
+                JsonSerializer.Serialize(validationResponseBody, _serializerOptions),
+                Encoding.UTF8,
+                cancellationToken);
+
+            return true;
+        }
 
         var requestId = httpContext.TraceIdentifier;
 
