@@ -1,3 +1,4 @@
+using JuntosSomosMais.Utils.GlobalExceptionHandler.Tests.Fixtures.TestExceptions;
 using JuntosSomosMais.Utils.GlobalExceptionHandler.Tests.Fixtures.TestModels;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,20 +16,12 @@ public class ProductController : ControllerBase
         return Ok(products);
     }
 
-    [HttpGet("domain")]
-    public IActionResult GetDomain([FromQuery] bool returnProduct = false)
+    [HttpGet("exception")]
+    public IActionResult GetException([FromQuery] bool returnProduct = false)
     {
         if (returnProduct)
             return Ok(new[] { new Product { Id = 1, Name = "Product 1" } });
-        throw new CustomDomainException("Custom domain exception message");
-    }
-
-    [HttpGet("custom-domain")]
-    public IActionResult GetCustomDomain([FromQuery] bool returnProduct = false)
-    {
-        if (returnProduct)
-            return Ok(new[] { new Product { Id = 1, Name = "Product 1" } });
-        throw new CustomDomainException("Custom domain exception message", "OTHER_CUSTOM_TYPE");
+        throw new InvalidOperationException("Something went wrong");
     }
 
     [IgnoreCustomException]
@@ -38,15 +31,15 @@ public class ProductController : ControllerBase
         throw new Exception("Some error ignore method");
     }
 
-    [HttpGet("conflict")]
-    public IActionResult GetConflict()
+    [HttpGet("not-found")]
+    public IActionResult GetNotFound()
     {
-        throw new ConflictTestException("Conflict error message");
+        throw new NotFoundException("Product not found");
     }
 
-    [HttpGet("base-class-mapping")]
-    public IActionResult GetBaseClassMapping()
+    [HttpGet("domain-error")]
+    public IActionResult GetDomainError()
     {
-        throw new ConcreteSubException("Base class mapping error");
+        throw new DomainException("Invalid product data");
     }
 }

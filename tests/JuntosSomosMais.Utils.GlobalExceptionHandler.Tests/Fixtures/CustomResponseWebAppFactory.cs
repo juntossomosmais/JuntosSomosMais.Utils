@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
@@ -7,13 +8,10 @@ using Microsoft.Extensions.Hosting;
 
 namespace JuntosSomosMais.Utils.GlobalExceptionHandler.Tests.Fixtures;
 
-public class BasicWebAppFactory : WebApplicationFactory<BasicWebAppFactory>
+public class CustomResponseWebAppFactory : WebApplicationFactory<CustomResponseWebAppFactory>
 {
     protected override IHost CreateHost(IHostBuilder builder)
     {
-        // WebApplicationFactory.ConfigureHostBuilder sets content root to
-        // <solutionRoot>/<assemblyName>/ which does not exist in our layout.
-        // Re-set the content root to the output directory before building.
         builder.UseContentRoot(AppContext.BaseDirectory);
         var host = builder.Build();
         host.Start();
@@ -32,8 +30,22 @@ public class BasicWebAppFactory : WebApplicationFactory<BasicWebAppFactory>
                     {
                         services.AddRouting();
                         services.AddControllers()
-                            .AddApplicationPart(typeof(BasicWebAppFactory).Assembly);
-                        services.AddCustomExceptionHandler();
+                            .AddApplicationPart(typeof(CustomResponseWebAppFactory).Assembly);
+                        services.AddCustomExceptionHandler(options =>
+                        {
+                            options.JsonSerializerOptions = new JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+                                WriteIndented = false
+                            };
+                            options.CustomizeResponse = ctx => new
+                            {
+                                TraceId = ctx.HttpContext.TraceIdentifier,
+                                ErrorMessage = ctx.Exception.Message,
+                                ResolvedStatusCode = ctx.StatusCode,
+                                ResolvedExceptionType = ctx.ExceptionType
+                            };
+                        });
                     })
                     .Configure(app =>
                     {

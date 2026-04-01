@@ -1,6 +1,6 @@
 # JuntosSomosMais.Utils.GlobalExceptionHandler
 
-ASP.NET Core 8+ global exception handler built on the native `IExceptionHandler` infrastructure. Catches unhandled exceptions across your application and converts them into consistent, structured JSON responses.
+ASP.NET Core 8+ global exception handler built on the native `IExceptionHandler` infrastructure. Catches unhandled exceptions and returns a consistent, user-friendly JSON response with a request ID for traceability.
 
 ## Requirements
 
@@ -25,119 +25,126 @@ builder.Services.AddCustomExceptionHandler();
 app.UseExceptionHandler();
 ```
 
-That's it. All unhandled exceptions are now caught and serialized to JSON.
+That's it. All unhandled exceptions now return a structured 500 response with a friendly message and a request ID.
 
 ## Response format
 
-Every error response follows the same shape:
-
-```json
-{
-  "type": "VALIDATION_ERRORS",
-  "error": {
-    "msg": "Product not found."
-  }
-}
-```
-
-When `ViewStackTrace` is enabled (see [options](#options)), `error` gains a `detail` field:
+Every unhandled exception produces the same shape:
 
 ```json
 {
   "type": "UNEXPECTED_ERROR",
+  "statusCode": 500,
   "error": {
-    "msg": "Object reference not set to an instance of an object.",
-    "detail": "   at MyApp.Services.ProductService.GetAsync() ..."
+    "requestId": "0HN4ABC123:00000001",
+    "msg": "Oh, sorry! We didn't expect that 😬 Please inform the ID \"0HN4ABC123:00000001\" so we can help you properly."
   }
 }
 ```
 
-The `type` field identifies the error category (see [exception type resolution](#exception-type-resolution)).
+- `requestId` is the ASP.NET Core `HttpContext.TraceIdentifier`, useful for correlating with server-side logs.
+- `msg` is a user-friendly message that embeds the request ID. The raw exception message is **never** exposed to the client.
 
-## Built-in exception types
+## Mapping exceptions to HTTP status codes
 
-The library ships four concrete exception classes. Throw them from anywhere in your application and the handler maps them to the correct HTTP status code automatically.
-
-| Exception | HTTP status |
-|-----------|-------------|
-| `DomainException` (abstract, any subclass) | 400 Bad Request |
-| `UnauthorizedException` | 401 Unauthorized |
-| `CannotAccessException` | 403 Forbidden |
-| `NotFoundException` | 404 Not Found |
-
-Any other exception type that is **not** mapped → `500 Internal Server Error`.
-
-### Constructor signatures
-
-All concrete exceptions share the same constructor set:
+Use the `[ExceptionStatusCode]` attribute on your own exception classes to map them to specific HTTP status codes:
 
 ```csharp
-// Message only
-throw new NotFoundException("Product not found.");
+using JuntosSomosMais.Utils.GlobalExceptionHandler;
+using Microsoft.AspNetCore.Http;
 
-// Message + custom type label (sets the "type" field in the response)
-throw new NotFoundException("Product not found.", "PRODUCT_NOT_FOUND");
-
-// Message + inner exception
-throw new NotFoundException("Product not found.", innerException);
-
-// Message + custom type label + inner exception
-throw new NotFoundException("Product not found.", "PRODUCT_NOT_FOUND", innerException);
-```
-
-## Exception type resolution
-
-The `type` field in the response is resolved as follows:
-
-| Condition | Value |
-|-----------|-------|
-| `CustomException` subclass with `ExceptionType` set | the value of `ExceptionType` |
-| `CustomException` subclass without `ExceptionType` | `"VALIDATION_ERRORS"` |
-| Any other exception | `"UNEXPECTED_ERROR"` |
-
-## Defining your own exceptions
-
-### Subclassing a built-in type
-
-Derive from any of the built-in exceptions to get their status code mapping for free:
-
-```csharp
-public class OrderNotFoundException : NotFoundException
+[ExceptionStatusCode(StatusCodes.Status404NotFound)]
+public class NotFoundException : Exception
 {
-    public OrderNotFoundException(Guid orderId)
-        : base($"Order '{orderId}' was not found.", "ORDER_NOT_FOUND") { }
+    public NotFoundException(string message) : base(message) { }
+}
+
+[ExceptionStatusCode(StatusCodes.Status400BadRequest)]
+public class DomainException : Exception
+{
+    public DomainException(string message) : base(message) { }
 }
 ```
 
-### Subclassing `DomainException`
+When a `NotFoundException` is thrown, the handler returns HTTP 404 instead of 500:
 
-`DomainException` is the base for validation/business-rule errors (400). Derive from it to create your own domain exceptions:
-
-```csharp
-public class InvalidCouponException : DomainException
+```json
 {
-    public InvalidCouponException(string code)
-        : base($"Coupon '{code}' is expired or does not exist.", "INVALID_COUPON") { }
+  "type": "NOT_FOUND_ERROR",
+  "statusCode": 404,
+  "error": {
+    "requestId": "0HN4ABC123:00000001",
+    "msg": "Oh, sorry! We didn't expect that 😬 Please inform the ID \"0HN4ABC123:00000001\" so we can help you properly."
+  }
 }
 ```
 
-### Subclassing `CustomException` directly
+The `msg` field always contains the friendly message with the request ID, regardless of the status code. The original exception message is only visible when `ViewStackTrace` is enabled (see [Options](#options)).
 
-Use `CustomException` as the base when you want to control the HTTP status code through `ExceptionMappings` (see [mapping custom exceptions](#mapping-custom-exceptions-to-status-codes)):
+### Default exception type labels
+
+When you don't provide an explicit `ExceptionType`, the handler infers one from the status code:
+
+| Status code | Default `type` label |
+|---|---|
+| 400 | `VALIDATION_ERRORS` |
+| 401 | `UNAUTHORIZED_ERROR` |
+| 403 | `FORBIDDEN_ERROR` |
+| 404 | `NOT_FOUND_ERROR` |
+| 503 | `SERVICE_UNAVAILABLE_ERROR` |
+| Any other | `UNEXPECTED_ERROR` |
+
+To override the default label, set `ExceptionType` explicitly:
 
 ```csharp
-public abstract class ConflictException : CustomException
+[ExceptionStatusCode(StatusCodes.Status400BadRequest, ExceptionType = "INVALID_INPUT")]
+public class InvalidInputException : Exception
 {
-    protected ConflictException(string message, string exceptionType)
-        : base(message) { ExceptionType = exceptionType; }
-}
-
-public class DuplicateEmailException : ConflictException
-{
-    public DuplicateEmailException(string email)
-        : base($"Email '{email}' is already registered.", "DUPLICATE_EMAIL") { }
+    public InvalidInputException(string message) : base(message) { }
 }
 ```
+
+### Attribute inheritance
+
+The attribute uses `Inherited = true`, so subclasses automatically inherit the parent's mapping:
+
+```csharp
+[ExceptionStatusCode(StatusCodes.Status400BadRequest)]
+public abstract class DomainException : Exception
+{
+    protected DomainException(string message) : base(message) { }
+}
+
+// Inherits the 400 status code from DomainException — no attribute needed
+public class InvalidStateException : DomainException
+{
+    public InvalidStateException(string message) : base(message) { }
+}
+```
+
+### Migrating from `custom-exception-middleware`
+
+If you are migrating from the `CustomExceptionMiddleware` NuGet package, replace the library's exception classes with your own annotated classes:
+
+| Before (library class) | After (your class with attribute) |
+|---|---|
+| `throw new DomainException("msg")` | `throw new DomainException("msg")` — define your own with `[ExceptionStatusCode(400)]` |
+| `throw new NotFoundException("msg")` | `throw new NotFoundException("msg")` — define your own with `[ExceptionStatusCode(404)]` |
+| `throw new CannotAccessException("msg")` | `throw new ForbiddenException("msg")` — define your own with `[ExceptionStatusCode(403)]` |
+| `throw new UnauthorizedException("msg")` | `throw new UnauthorizedException("msg")` — define your own with `[ExceptionStatusCode(401)]` |
+
+**Step-by-step:**
+
+1. Remove the `CustomExceptionMiddleware` package.
+2. Install `JuntosSomosMais.Utils.GlobalExceptionHandler`.
+3. Create your own exception classes with the `[ExceptionStatusCode]` attribute (see examples above).
+4. Replace `app.UseCustomExceptionMiddleware()` with:
+   ```csharp
+   builder.Services.AddCustomExceptionHandler();
+   // ...
+   app.UseExceptionHandler();
+   ```
+5. Update your `throw` statements to use your new exception classes.
 
 ## Options
 
@@ -146,11 +153,8 @@ Pass a configuration delegate to `AddCustomExceptionHandler` to customise behavi
 ```csharp
 builder.Services.AddCustomExceptionHandler(options =>
 {
-    // Show stack traces — recommended for Development only
+    // Show full exception details — recommended for Development only
     options.ViewStackTrace = builder.Environment.IsDevelopment();
-
-    // Map additional exception types to HTTP status codes
-    options.ExceptionMappings[typeof(ConflictException)] = HttpStatusCode.Conflict;
 
     // Replace the default JSON serializer options
     options.JsonSerializerOptions = new JsonSerializerOptions
@@ -163,38 +167,32 @@ builder.Services.AddCustomExceptionHandler(options =>
     options.CustomizeResponse = ctx => new
     {
         traceId = ctx.HttpContext.TraceIdentifier,
-        status = (int)ctx.StatusCode,
-        code = ctx.ExceptionType,
-        message = ctx.Exception.Message
+        message = ctx.Exception.Message,
+        statusCode = ctx.StatusCode,
+        errorType = ctx.ExceptionType
     };
 });
 ```
 
 ### `ViewStackTrace`
 
-`bool`, default `false`. When `true`, the response body uses `CustomErrorDetailResponse` which adds an `error.detail` field containing the exception's stack trace. Enable only in non-production environments.
+`bool`, default `false`. When `true`, the response includes `error.detail` containing the full exception output (`exception.ToString()`). Enable only in non-production environments.
 
-### `ExceptionMappings`
-
-`Dictionary<Type, HttpStatusCode>`. Register additional exception types and their HTTP status codes.
-
-Consumer mappings are checked **before** built-in ones, so they can override defaults. If you register a **base class**, all subclasses that are not explicitly registered will also match:
-
-```csharp
-options.ExceptionMappings[typeof(ConflictException)] = HttpStatusCode.Conflict;
-// DuplicateEmailException (which extends ConflictException) → 409
+```json
+{
+  "type": "NOT_FOUND_ERROR",
+  "statusCode": 404,
+  "error": {
+    "requestId": "0HN4ABC123:00000001",
+    "msg": "Oh, sorry! We didn't expect that 😬 Please inform the ID \"0HN4ABC123:00000001\" so we can help you properly.",
+    "detail": "MyApp.NotFoundException: Product not found\n   at MyApp.Controllers.ProductsController.GetAsync() ..."
+  }
+}
 ```
-
-Resolution order:
-1. Exact type match in `ExceptionMappings`
-2. Exact type match in built-in mappings (`Unauthorized`, `Forbidden`, `NotFound`)
-3. Base-class match in `ExceptionMappings`
-4. Assignable to `DomainException` → 400
-5. Everything else → 500
 
 ### `JsonSerializerOptions`
 
-`JsonSerializerOptions?`, default `null`. Provide a custom instance to control serialization. When `null`, the handler uses camelCase naming, `UnsafeRelaxedJsonEscaping`, and indented output.
+`JsonSerializerOptions?`, default `null`. Provide a custom instance to control serialization. When `null`, the handler uses camelCase naming, `UnsafeRelaxedJsonEscaping`, and indented output. The instance is made read-only by the handler for thread safety.
 
 ### `CustomizeResponse`
 
@@ -206,8 +204,8 @@ Resolution order:
 |----------|------|-------------|
 | `HttpContext` | `HttpContext` | The current request context |
 | `Exception` | `Exception` | The unhandled exception |
-| `StatusCode` | `HttpStatusCode` | The resolved HTTP status code |
-| `ExceptionType` | `string` | The resolved type label |
+| `StatusCode` | `int` | The resolved HTTP status code (from the attribute or 500) |
+| `ExceptionType` | `string` | The resolved type label (from the attribute, default mapping, or `UNEXPECTED_ERROR`) |
 
 ## Excluding endpoints from the handler
 
@@ -231,27 +229,13 @@ When the attribute is present, `TryHandleAsync` returns `false` and the framewor
 Every handled exception is logged at `Error` level via `ILogger<CustomExceptionHandler>`. The log message includes:
 
 - `TraceId` — the request trace identifier
-- `ExceptionType` — the resolved type label
 - `Message` — the exception message
 - The full exception object (stack trace included regardless of `ViewStackTrace`)
-
-Configure the log level for this class through your logging configuration:
-
-```json
-{
-  "Logging": {
-    "LogLevel": {
-      "JuntosSomosMais.Utils.GlobalExceptionHandler.CustomExceptionHandler": "Error"
-    }
-  }
-}
-```
 
 ## Full example
 
 ```csharp
 // Program.cs
-using System.Net;
 using JuntosSomosMais.Utils.GlobalExceptionHandler;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -260,7 +244,6 @@ builder.Services.AddControllers();
 builder.Services.AddCustomExceptionHandler(options =>
 {
     options.ViewStackTrace = builder.Environment.IsDevelopment();
-    options.ExceptionMappings[typeof(ConflictException)] = HttpStatusCode.Conflict;
 });
 
 var app = builder.Build();
@@ -271,44 +254,42 @@ app.Run();
 ```
 
 ```csharp
-// Domain exceptions
-public class ProductNotFoundException : NotFoundException
-{
-    public ProductNotFoundException(Guid id)
-        : base($"Product '{id}' was not found.", "PRODUCT_NOT_FOUND") { }
-}
+// Exceptions/NotFoundException.cs
+using JuntosSomosMais.Utils.GlobalExceptionHandler;
+using Microsoft.AspNetCore.Http;
 
-public abstract class ConflictException : CustomException
+[ExceptionStatusCode(StatusCodes.Status404NotFound)]
+public class NotFoundException : Exception
 {
-    protected ConflictException(string message, string exceptionType)
-        : base(message) { ExceptionType = exceptionType; }
-}
-
-public class DuplicateSkuException : ConflictException
-{
-    public DuplicateSkuException(string sku)
-        : base($"SKU '{sku}' already exists.", "DUPLICATE_SKU") { }
+    public NotFoundException(string message) : base(message) { }
 }
 ```
 
 ```csharp
-// Controller
+// Controllers/ProductsController.cs
 [ApiController]
 [Route("products")]
 public class ProductsController : ControllerBase
 {
     [HttpGet("{id}")]
-    public IActionResult Get(Guid id)
+    public async Task<IActionResult> GetAsync(Guid id, [FromServices] AppDbContext db)
     {
-        throw new ProductNotFoundException(id);
-        // → 404 { "type": "PRODUCT_NOT_FOUND", "error": { "msg": "Product '...' was not found." } }
+        var product = await db.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
+        if (product is null)
+            throw new NotFoundException($"Product {id} not found");
+
+        return Ok(product);
     }
 
     [HttpPost]
-    public IActionResult Create(CreateProductRequest request)
+    public async Task<IActionResult> CreateAsync(CreateProductRequest request, [FromServices] AppDbContext db)
     {
-        throw new DuplicateSkuException(request.Sku);
-        // → 409 { "type": "DUPLICATE_SKU", "error": { "msg": "SKU '...' already exists." } }
+        // If this throws, the handler catches it and returns 500
+        // with a friendly message + requestId for support traceability.
+        var product = new Product { Name = request.Name };
+        db.Products.Add(product);
+        await db.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetAsync), new { id = product.Id }, product);
     }
 }
 ```

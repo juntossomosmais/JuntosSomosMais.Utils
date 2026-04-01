@@ -1,5 +1,3 @@
-using FluentAssertions;
-using JuntosSomosMais.Utils.GlobalExceptionHandler;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -10,22 +8,28 @@ public class CustomExceptionHandlerExtensionsTests
     [Fact(DisplayName = "Should throw argument null exception when services is null")]
     public void AddCustomExceptionHandler_WithNullServices_ShouldThrowArgumentNullException()
     {
-        Action act = () =>
-        {
-            IServiceCollection services = null!;
-            services.AddCustomExceptionHandler();
-        };
-        act.Should().Throw<ArgumentNullException>().WithParameterName("services");
+        // Arrange
+        IServiceCollection services = null!;
+
+        // Act
+        var act = () => services.AddCustomExceptionHandler();
+
+        // Assert
+        var ex = Assert.Throws<ArgumentNullException>(act);
+        Assert.Equal("services", ex.ParamName);
     }
 
     [Fact(DisplayName = "Should throw argument null exception when configure is null")]
     public void AddCustomExceptionHandler_WithNullConfigure_ShouldThrowArgumentNullException()
     {
-        Action act = () =>
-        {
-            var services = new ServiceCollection();
-            services.AddCustomExceptionHandler(null!);
-        };
-        act.Should().Throw<ArgumentNullException>().WithParameterName("configure");
+        // Arrange
+        var services = new ServiceCollection();
+
+        // Act
+        var act = () => services.AddCustomExceptionHandler(null!);
+
+        // Assert
+        var ex = Assert.Throws<ArgumentNullException>(act);
+        Assert.Equal("configure", ex.ParamName);
     }
 }
