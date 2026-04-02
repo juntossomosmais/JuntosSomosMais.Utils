@@ -23,7 +23,7 @@ Catches unhandled exceptions and returns a consistent, user-friendly JSON respon
 - .NET 8 or later
 - ASP.NET Core 8 or later
 
-The package includes `FluentValidation` as a transitive dependency.
+The package includes `FluentValidation` (v11.\*) as a transitive dependency. If your project uses a newer version (e.g., v12.x), keep your direct `FluentValidation` package reference -- NuGet will resolve to the higher version automatically without conflicts.
 
 ### Quick start
 
@@ -31,11 +31,14 @@ Register the handler in `Program.cs`:
 
 ```csharp
 builder.Services.AddCustomExceptionHandler();
+builder.Services.AddProblemDetails();
 
 // ...
 
 app.UseExceptionHandler();
 ```
+
+> **Important:** `AddProblemDetails()` is required. ASP.NET Core 8's `ExceptionHandlerMiddlewareImpl` needs `IProblemDetailsService` registered when no `ExceptionHandlingPath` or `ExceptionHandler` delegate is set. Without it, `UseExceptionHandler()` throws `InvalidOperationException` at startup.
 
 A single call to `AddCustomExceptionHandler()` configures:
 
@@ -179,6 +182,7 @@ FluentValidation now recommends [manual validation](https://docs.fluentvalidatio
 // Program.cs
 builder.Services.AddScoped<IValidator<CreatePersonRequest>, CreatePersonRequestValidator>();
 builder.Services.AddCustomExceptionHandler();
+builder.Services.AddProblemDetails();
 
 app.UseExceptionHandler();
 ```
@@ -213,6 +217,48 @@ public async Task<IActionResult> CreateAsync(
 }
 ```
 
+#### Migrating a custom `ModelValidationActionFilter`
+
+If your project has a global action filter that resolves `IValidator<T>` from DI and returns `BadRequestObjectResult(new ValidationProblemDetails(...))`, you must change it to **throw** `FluentValidation.ValidationException` instead. Otherwise the filter bypasses the library and returns a different response shape.
+
+**Before** (returns `ValidationProblemDetails` directly):
+
+```csharp
+if (!context.ModelState.IsValid)
+{
+    context.Result = new BadRequestObjectResult(new ValidationProblemDetails(context.ModelState));
+    return;
+}
+```
+
+**After** (throws `ValidationException` so the library catches it):
+
+```csharp
+var failures = new List<FluentValidation.Results.ValidationFailure>();
+
+foreach (var argument in context.ActionArguments.Values)
+{
+    if (argument is null) continue;
+
+    var validatorType = typeof(IValidator<>).MakeGenericType(argument.GetType());
+    if (context.HttpContext.RequestServices.GetService(validatorType) is not IValidator validator)
+        continue;
+
+    var validationContext = new ValidationContext<object>(argument);
+    var result = await validator.ValidateAsync(validationContext, context.HttpContext.RequestAborted);
+
+    if (!result.IsValid)
+        failures.AddRange(result.Errors);
+}
+
+if (failures.Count > 0)
+    throw new ValidationException(failures);
+```
+
+The library's `IExceptionHandler` catches the `ValidationException` and returns `{ type: "VALIDATION_ERRORS", statusCode: 400, error: { field: ["messages"] } }`.
+
+> **Tip:** Pass `context.HttpContext.RequestAborted` as the `CancellationToken` to `ValidateAsync`. This ensures validators that hit the database (e.g., `MustAsync`) stop early when the client disconnects.
+
 #### Important: `InvalidModelStateResponseFactory` override
 
 `AddCustomExceptionHandler()` overrides `ApiBehaviorOptions.InvalidModelStateResponseFactory` to standardize validation responses. If your application has a custom `InvalidModelStateResponseFactory` (e.g., a `MvcBuilderExtension.ConfigureInvalidModelStateResponse()`), you should **remove it** after adopting this library -- the library now handles it for you.
@@ -237,6 +283,7 @@ If you are migrating from the `CustomExceptionMiddleware` NuGet package, replace
 5. Replace `app.UseCustomExceptionMiddleware()` with:
    ```csharp
    builder.Services.AddCustomExceptionHandler();
+   builder.Services.AddProblemDetails();
    // ...
    app.UseExceptionHandler();
    ```
@@ -343,6 +390,7 @@ builder.Services.AddCustomExceptionHandler(options =>
 {
     options.ViewStackTrace = builder.Environment.IsDevelopment();
 });
+builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 

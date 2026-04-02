@@ -3,23 +3,23 @@
 - **Always create tests** for every implementation.
 - **Building the solution**: By default, use the filter script to get condensed output:
     ```shell
-    docker compose run --volume "$(PWD):/app" --rm --remove-orphans integration-tests bash -c 'dotnet build JuntosSomosMais.Utils.GlobalExceptionHandler.sln > /tmp/build-output.txt 2>&1; cat /tmp/build-output.txt | dotnet dotnet-script ./scripts/filter-build-output.csx'
+    docker compose run --volume "$(PWD):/app" --rm --remove-orphans integration-tests bash -c 'dotnet build JuntosSomosMais.Utils.sln > /tmp/build-output.txt 2>&1; cat /tmp/build-output.txt | dotnet dotnet-script ./scripts/filter-build-output.csx'
     ```
   When you need the raw unfiltered output (e.g., to debug a build issue or inspect restore details), run without the script:
     ```shell
-    docker compose run --volume "$(PWD):/app" --rm --remove-orphans integration-tests bash -c 'dotnet build JuntosSomosMais.Utils.GlobalExceptionHandler.sln'
+    docker compose run --volume "$(PWD):/app" --rm --remove-orphans integration-tests bash -c 'dotnet build JuntosSomosMais.Utils.sln'
     ```
 - Run selective unit testing focusing on the classes you have changed. Always on classes, not on methods:
     ```shell
-    docker compose run --volume "$(PWD):/app" --rm --remove-orphans integration-tests bash -c 'dotnet test JuntosSomosMais.Utils.GlobalExceptionHandler.sln --settings "./runsettings.xml" --filter "TheClassYouWantToTest" > /tmp/test-output.txt 2>&1; cat /tmp/test-output.txt | dotnet dotnet-script ./scripts/filter-failed-tests.csx'
+    docker compose run --volume "$(PWD):/app" --rm --remove-orphans integration-tests bash -c 'dotnet test JuntosSomosMais.Utils.sln --settings "./runsettings.xml" --filter "TheClassYouWantToTest" > /tmp/test-output.txt 2>&1; cat /tmp/test-output.txt | dotnet dotnet-script ./scripts/filter-failed-tests.csx'
     ```
 - **Coverage for selective testing**: Sample commands to check coverage for a specific file:
     ```bash
-    docker compose run --volume "$(PWD):/app" --rm --remove-orphans integration-tests bash -c 'dotnet test JuntosSomosMais.Utils.GlobalExceptionHandler.sln --settings "./runsettings.xml" --filter "TheClassYouWantToTest" > /tmp/test-output.txt 2>&1; cat /tmp/test-output.txt | dotnet dotnet-script ./scripts/generate-coverage-report.csx -- "SampleClass"'
+    docker compose run --volume "$(PWD):/app" --rm --remove-orphans integration-tests bash -c 'dotnet test JuntosSomosMais.Utils.sln --settings "./runsettings.xml" --filter "TheClassYouWantToTest" > /tmp/test-output.txt 2>&1; cat /tmp/test-output.txt | dotnet dotnet-script ./scripts/generate-coverage-report.csx -- "SampleClass"'
     ```
 - Run all tests when the selective runs are successful to ensure overall integrity (you MUST execute exactly like this):
     ```shell
-    docker compose run --volume "$(PWD):/app" --rm --remove-orphans integration-tests bash -c 'dotnet test JuntosSomosMais.Utils.GlobalExceptionHandler.sln --settings "./runsettings.xml" > /tmp/test-output.txt 2>&1; cat /tmp/test-output.txt | dotnet dotnet-script ./scripts/filter-failed-tests.csx'
+    docker compose run --volume "$(PWD):/app" --rm --remove-orphans integration-tests bash -c 'dotnet test JuntosSomosMais.Utils.sln --settings "./runsettings.xml" > /tmp/test-output.txt 2>&1; cat /tmp/test-output.txt | dotnet dotnet-script ./scripts/filter-failed-tests.csx'
     ```
 - When the implementation is fully completed, you can format the code with:
     ```shell
