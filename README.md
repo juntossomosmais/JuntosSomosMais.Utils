@@ -1,21 +1,31 @@
-# JuntosSomosMais.Utils.GlobalExceptionHandler
+# JuntosSomosMais.Utils
 
-ASP.NET Core 8+ global exception handler built on the native `IExceptionHandler` infrastructure. Catches unhandled exceptions and returns a consistent, user-friendly JSON response with a request ID for traceability. Also standardizes validation error responses from FluentValidation and ASP.NET model-state validation.
+Opinionated configurations and utilities for .NET projects at Juntos Somos Mais.
 
-## Requirements
+## Packages
 
-- .NET 8 or later
-- ASP.NET Core 8 or later
+| Package | Description |
+|---|---|
+| [JuntosSomosMais.Utils.GlobalExceptionHandler](https://www.nuget.org/packages/JuntosSomosMais.Utils.GlobalExceptionHandler/) | ASP.NET Core 8+ global exception handler built on the native `IExceptionHandler` infrastructure. |
 
-## Installation
+Install via CLI:
 
 ```bash
 dotnet add package JuntosSomosMais.Utils.GlobalExceptionHandler
 ```
 
+## JuntosSomosMais.Utils.GlobalExceptionHandler
+
+Catches unhandled exceptions and returns a consistent, user-friendly JSON response with a request ID for traceability. Also standardizes validation error responses from FluentValidation and ASP.NET model-state validation.
+
+### Requirements
+
+- .NET 8 or later
+- ASP.NET Core 8 or later
+
 The package includes `FluentValidation` as a transitive dependency.
 
-## Quick start
+### Quick start
 
 Register the handler in `Program.cs`:
 
@@ -33,9 +43,9 @@ A single call to `AddCustomExceptionHandler()` configures:
 2. **Validation error responses** -- overrides `InvalidModelStateResponseFactory` so that model-state errors (from data annotations, FluentValidation auto-validation, or model binding) return the same structured format.
 3. **FluentValidation exception handling** -- catches `FluentValidation.ValidationException` (thrown by `ValidateAndThrowAsync`) and returns field-level errors.
 
-## Response formats
+### Response formats
 
-### Exception responses
+#### Exception responses
 
 Every unhandled exception produces the same shape:
 
@@ -53,7 +63,7 @@ Every unhandled exception produces the same shape:
 - `requestId` is the ASP.NET Core `HttpContext.TraceIdentifier`, useful for correlating with server-side logs.
 - `msg` is a user-friendly message that embeds the request ID. The raw exception message is **never** exposed to the client.
 
-### Validation error responses
+#### Validation error responses
 
 Model-state errors (from `[Required]`, `[Range]`, FluentValidation auto-validation, etc.) and `FluentValidation.ValidationException` both produce:
 
@@ -72,7 +82,7 @@ Model-state errors (from `[Required]`, `[Range]`, FluentValidation auto-validati
 - `error` is a dictionary mapping field names to arrays of error messages.
 - This format is consistent regardless of whether the error came from model-state validation (before the controller action) or from `ValidateAndThrowAsync` (during the action).
 
-## Mapping exceptions to HTTP status codes
+### Mapping exceptions to HTTP status codes
 
 Use the `[ExceptionStatusCode]` attribute on your own exception classes to map them to specific HTTP status codes:
 
@@ -108,7 +118,7 @@ When a `NotFoundException` is thrown, the handler returns HTTP 404 instead of 50
 
 The `msg` field always contains the friendly message with the request ID, regardless of the status code. The original exception message is only visible when `ViewStackTrace` is enabled (see [Options](#options)).
 
-### Default exception type labels
+#### Default exception type labels
 
 When you don't provide an explicit `ExceptionType`, the handler infers one from the status code:
 
@@ -131,7 +141,7 @@ public class InvalidInputException : Exception
 }
 ```
 
-### Attribute inheritance
+#### Attribute inheritance
 
 The attribute uses `Inherited = true`, so subclasses automatically inherit the parent's mapping:
 
@@ -149,9 +159,9 @@ public class InvalidStateException : DomainException
 }
 ```
 
-## Validation handling
+### Validation handling
 
-### How it works
+#### How it works
 
 `AddCustomExceptionHandler()` configures two validation interception points:
 
@@ -161,7 +171,7 @@ public class InvalidStateException : DomainException
 
 Both paths produce the same `{ type, statusCode, error }` shape.
 
-### Using FluentValidation with manual validation (recommended)
+#### Using FluentValidation with manual validation (recommended)
 
 FluentValidation now recommends [manual validation](https://docs.fluentvalidation.net/en/latest/aspnet.html). Register your validators and inject them into controllers:
 
@@ -203,11 +213,11 @@ public async Task<IActionResult> CreateAsync(
 }
 ```
 
-### Important: `InvalidModelStateResponseFactory` override
+#### Important: `InvalidModelStateResponseFactory` override
 
 `AddCustomExceptionHandler()` overrides `ApiBehaviorOptions.InvalidModelStateResponseFactory` to standardize validation responses. If your application has a custom `InvalidModelStateResponseFactory` (e.g., a `MvcBuilderExtension.ConfigureInvalidModelStateResponse()`), you should **remove it** after adopting this library -- the library now handles it for you.
 
-### Migrating from `custom-exception-middleware`
+#### Migrating from `custom-exception-middleware`
 
 If you are migrating from the `CustomExceptionMiddleware` NuGet package, replace the library's exception classes with your own annotated classes:
 
@@ -232,7 +242,7 @@ If you are migrating from the `CustomExceptionMiddleware` NuGet package, replace
    ```
 6. Update your `throw` statements to use your new exception classes.
 
-## Options
+### Options
 
 Pass a configuration delegate to `AddCustomExceptionHandler` to customise behaviour:
 
@@ -260,7 +270,7 @@ builder.Services.AddCustomExceptionHandler(options =>
 });
 ```
 
-### `ViewStackTrace`
+#### `ViewStackTrace`
 
 `bool`, default `false`. When `true`, the response includes `error.detail` containing the full exception output (`exception.ToString()`). Enable only in non-production environments.
 
@@ -276,11 +286,11 @@ builder.Services.AddCustomExceptionHandler(options =>
 }
 ```
 
-### `JsonSerializerOptions`
+#### `JsonSerializerOptions`
 
 `JsonSerializerOptions?`, default `null`. Provide a custom instance to control serialization. When `null`, the handler uses camelCase naming, `UnsafeRelaxedJsonEscaping`, and indented output. The instance is made read-only by the handler for thread safety. These options are used consistently for both exception responses and validation error responses.
 
-### `CustomizeResponse`
+#### `CustomizeResponse`
 
 `Func<CustomExceptionContext, object>?`, default `null`. Override the entire response body. The delegate receives a `CustomExceptionContext` and must return any object; the handler serializes it using `JsonSerializerOptions`. This applies to both regular exception responses and `FluentValidation.ValidationException` responses.
 
@@ -293,7 +303,7 @@ builder.Services.AddCustomExceptionHandler(options =>
 | `StatusCode` | `int` | The resolved HTTP status code (from the attribute or 500) |
 | `ExceptionType` | `string` | The resolved type label (from the attribute, default mapping, or `UNEXPECTED_ERROR`) |
 
-## Excluding endpoints from the handler
+### Excluding endpoints from the handler
 
 Apply `[IgnoreCustomException]` to a controller or action to let the exception bubble past the handler (e.g., to a fallback pipeline):
 
@@ -310,7 +320,7 @@ public IActionResult Internal() { ... }
 
 When the attribute is present, `TryHandleAsync` returns `false` and the framework continues to the next registered exception handler.
 
-## Logging
+### Logging
 
 Every handled exception is logged at `Error` level via `ILogger<CustomExceptionHandler>`. The log message includes:
 
@@ -318,7 +328,7 @@ Every handled exception is logged at `Error` level via `ILogger<CustomExceptionH
 - `Message` — the exception message
 - The full exception object (stack trace included regardless of `ViewStackTrace`)
 
-## Full example
+### Full example
 
 ```csharp
 // Program.cs
