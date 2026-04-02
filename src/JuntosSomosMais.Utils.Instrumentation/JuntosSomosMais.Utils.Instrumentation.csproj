@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>JuntosSomosMais.Utils.Instrumentation</RootNamespace>
+    <Description>Validation instrumentation for ASP.NET Core APIs and Ziggurat message pipelines.</Description>
+    <PackageId>JuntosSomosMais.Utils.Instrumentation</PackageId>
+    <PackageTags>validation instrumentation aspnetcore ziggurat middleware filter</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="11.*" />
+    <PackageReference Include="Ziggurat" Version="8.*" />
+  </ItemGroup>
+</Project>

@@ -7,12 +7,106 @@ Opinionated configurations and utilities for .NET projects at Juntos Somos Mais.
 | Package | Description |
 |---|---|
 | [JuntosSomosMais.Utils.GlobalExceptionHandler](https://www.nuget.org/packages/JuntosSomosMais.Utils.GlobalExceptionHandler/) | ASP.NET Core 8+ global exception handler built on the native `IExceptionHandler` infrastructure. |
+| [JuntosSomosMais.Utils.Instrumentation](https://www.nuget.org/packages/JuntosSomosMais.Utils.Instrumentation/) | FluentValidation instrumentation for ASP.NET Core APIs and Ziggurat message pipelines. |
 
 Install via CLI:
 
 ```bash
 dotnet add package JuntosSomosMais.Utils.GlobalExceptionHandler
+dotnet add package JuntosSomosMais.Utils.Instrumentation
 ```
+
+## JuntosSomosMais.Utils.Instrumentation
+
+Provides two FluentValidation-based validation components that can be shared across all applications:
+
+- **`ModelValidationActionFilter`** -- an ASP.NET Core action filter that automatically validates all action arguments before the controller runs.
+- **`MessageValidationMiddleware<TMessage>`** -- a Ziggurat consumer middleware that validates incoming messages before the handler runs.
+
+### Requirements
+
+- .NET 8 or later
+- `FluentValidation` v11+
+- `Ziggurat` v8+ (for message validation)
+
+### API validation filter
+
+Resolves `IValidator<T>` from DI for each action argument, collects all validation failures, and throws a single `FluentValidation.ValidationException`. Arguments that are `null` or have no registered validator are skipped. The thrown exception is caught by `GlobalExceptionHandler`, which returns a standardized 400 response.
+
+Register it on `MvcOptions`:
+
+```csharp
+using JuntosSomosMais.Utils.Instrumentation;
+
+services.AddControllers(options =>
+{
+    options.AddFluentValidationAPIFilter();
+});
+```
+
+The filter propagates `context.HttpContext.RequestAborted` as the `CancellationToken`, so validators with async rules (e.g., `MustAsync` with DB checks) abort when the client disconnects.
+
+> **Important:** This filter throws `FluentValidation.ValidationException`. You must register `GlobalExceptionHandler` (`AddCustomExceptionHandler()`) to catch it and produce the standardized error response. Without it, the exception bubbles up unhandled.
+
+### Message validation middleware
+
+Resolves `IValidator<TMessage>` from DI and validates each incoming Ziggurat message. Invalid messages are logged at `Warning` level and dropped (the handler never executes). Valid messages proceed to the next middleware in the pipeline.
+
+Register it on Ziggurat's pipeline options:
+
+```csharp
+using JuntosSomosMais.Utils.Instrumentation;
+
+services.AddConsumerService<MyMessage, MyHandler>(options =>
+{
+    options.UseFluentValidationConsumerMiddleware();
+    options.UseEntityFrameworkIdempotency<MyMessage, AppDbContext>();
+});
+```
+
+> **Important:** A registered `IValidator<TMessage>` is required. If no validator is found, the middleware throws `InvalidOperationException` at message processing time. This is by design -- using the middleware without a validator is a configuration error.
+
+> **Ordering:** Register the validation middleware **before** idempotency tracking so that invalid messages are rejected before their IDs are recorded.
+
+### Full example
+
+```csharp
+// Program.cs
+using JuntosSomosMais.Utils.GlobalExceptionHandler;
+using JuntosSomosMais.Utils.Instrumentation;
+using FluentValidation;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Validators
+builder.Services.AddScoped<IValidator<CreatePersonRequest>, CreatePersonRequestValidator>();
+builder.Services.AddScoped<IValidator<OrderCreatedMessage>, OrderCreatedMessageValidator>();
+
+// Exception handling
+builder.Services.AddCustomExceptionHandler();
+builder.Services.AddProblemDetails();
+
+// API with validation filter
+builder.Services.AddControllers(options =>
+{
+    options.AddFluentValidationAPIFilter();
+});
+
+// Worker with validation middleware
+builder.Services.AddConsumerService<OrderCreatedMessage, OrderCreatedHandler>(options =>
+{
+    options.UseFluentValidationConsumerMiddleware();
+    options.UseEntityFrameworkIdempotency<OrderCreatedMessage, AppDbContext>();
+});
+
+var app = builder.Build();
+
+app.UseExceptionHandler();
+app.MapControllers();
+app.Run();
+```
+
+---
 
 ## JuntosSomosMais.Utils.GlobalExceptionHandler
 

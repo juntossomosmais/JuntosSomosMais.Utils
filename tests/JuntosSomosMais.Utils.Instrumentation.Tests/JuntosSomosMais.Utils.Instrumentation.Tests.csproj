@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Moq" Version="4.20.*" />
+    <PackageReference Include="FluentValidation" Version="11.*" />
+    <PackageReference Include="Ziggurat" Version="8.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\JuntosSomosMais.Utils.Instrumentation\JuntosSomosMais.Utils.Instrumentation.csproj" />
+  </ItemGroup>
+</Project>

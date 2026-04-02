@@ -11,6 +11,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{4F7F46B7
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.GlobalExceptionHandler.Tests", "tests\JuntosSomosMais.Utils.GlobalExceptionHandler.Tests\JuntosSomosMais.Utils.GlobalExceptionHandler.Tests.csproj", "{1AF2B329-48FE-456A-951E-4246DF0FCEB9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.Instrumentation", "src\JuntosSomosMais.Utils.Instrumentation\JuntosSomosMais.Utils.Instrumentation.csproj", "{740F950E-D423-49AB-868E-D3492D45D423}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.Instrumentation.Tests", "tests\JuntosSomosMais.Utils.Instrumentation.Tests\JuntosSomosMais.Utils.Instrumentation.Tests.csproj", "{D8954B70-D186-4E90-B3F3-2F74CD9EEF0F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -28,9 +32,19 @@ Global
 		{1AF2B329-48FE-456A-951E-4246DF0FCEB9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1AF2B329-48FE-456A-951E-4246DF0FCEB9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1AF2B329-48FE-456A-951E-4246DF0FCEB9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{740F950E-D423-49AB-868E-D3492D45D423}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{740F950E-D423-49AB-868E-D3492D45D423}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{740F950E-D423-49AB-868E-D3492D45D423}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{740F950E-D423-49AB-868E-D3492D45D423}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D8954B70-D186-4E90-B3F3-2F74CD9EEF0F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D8954B70-D186-4E90-B3F3-2F74CD9EEF0F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D8954B70-D186-4E90-B3F3-2F74CD9EEF0F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D8954B70-D186-4E90-B3F3-2F74CD9EEF0F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{9ACA7FDE-FED8-4338-AE87-58570D2F83BD} = {1ED936F9-0D06-4A85-B506-D260BA77E0FB}
 		{1AF2B329-48FE-456A-951E-4246DF0FCEB9} = {4F7F46B7-3CAE-4AE2-A31D-0E3157E5D2B5}
+		{740F950E-D423-49AB-868E-D3492D45D423} = {1ED936F9-0D06-4A85-B506-D260BA77E0FB}
+		{D8954B70-D186-4E90-B3F3-2F74CD9EEF0F} = {4F7F46B7-3CAE-4AE2-A31D-0E3157E5D2B5}
 	EndGlobalSection
 EndGlobal
