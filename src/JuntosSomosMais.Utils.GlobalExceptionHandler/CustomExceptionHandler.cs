@@ -59,6 +59,8 @@ public class CustomExceptionHandler : IExceptionHandler
 
         if (exception is ValidationException validationException)
         {
+            EnrichActivityWithException(exception, StatusCodes.Status400BadRequest);
+
             _logger.LogError(exception, "Occurred a validation exception - TraceId:{TraceId} - Message:{Message}",
                 httpContext.TraceIdentifier, exception.Message);
 
@@ -99,6 +101,8 @@ public class CustomExceptionHandler : IExceptionHandler
         var exceptionType = attr is not null
             ? attr.ExceptionType ?? GetDefaultExceptionType(attr.StatusCode)
             : DefaultExceptionType;
+
+        EnrichActivityWithException(exception, statusCode);
 
         httpContext.Response.StatusCode = statusCode;
         httpContext.Response.ContentType = "application/json";
@@ -154,5 +158,19 @@ public class CustomExceptionHandler : IExceptionHandler
         return DefaultExceptionTypesByStatusCode.TryGetValue(statusCode, out var type)
             ? type
             : DefaultExceptionType;
+    }
+
+    private static void EnrichActivityWithException(Exception exception, int statusCode)
+    {
+        var activity = System.Diagnostics.Activity.Current;
+        if (activity is null)
+            return;
+
+        activity.SetTag("exception.type", exception.GetType().FullName);
+        activity.SetTag("exception.message", exception.Message);
+        activity.SetTag("exception.stacktrace", exception.ToString());
+
+        if (statusCode >= 500)
+            activity.SetStatus(System.Diagnostics.ActivityStatusCode.Error, exception.Message);
     }
 }
