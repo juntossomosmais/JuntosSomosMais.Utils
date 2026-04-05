@@ -8,12 +8,6 @@
         "resolved": "6.0.0",
         "contentHash": "tW3lsNS+dAEII6YGUX/VMoJjBS1QvsxqJeqLaJXub08y1FSjasFPtQ4UBUsudE9PNrzLjooClMsPtY2cZLdXpQ=="
       },
-      "FluentValidation": {
-        "type": "Direct",
-        "requested": "[11.*, )",
-        "resolved": "11.12.0",
-        "contentHash": "Wim3rI1nGZKO5S/lgJ0ZpD3W/uu1CECoJ8pETzC8av34ejr+jCDr4paKhSJRG0Ltcv8UjdxtYCynG+RUEfEUDA=="
-      },
       "Microsoft.NET.Test.Sdk": {
         "type": "Direct",
         "requested": "[17.8.0, )",
@@ -50,23 +44,27 @@
         "resolved": "2.5.5",
         "contentHash": "AJsBBn8S00ZxdXPSIp8s+NcBQMO9tcll1UVCfGNoEi1DUH2z3f4Y1epV9nYbhgG6wFoTKJP6YuLT2MeTPV9gnA=="
       },
-      "Ziggurat": {
-        "type": "Direct",
-        "requested": "[8.*, )",
-        "resolved": "8.2.1",
-        "contentHash": "aDcQl0kYaCWrIH2W+uuFyINftxwnerPlE/QV83v680n3l6asV2J/6KHoCMBUkL9rapNY7YuieoDTFIFt2xjNzw==",
-        "dependencies": {
-          "Microsoft.Extensions.DependencyInjection": "8.0.1",
-          "Microsoft.Extensions.Hosting.Abstractions": "8.0.1",
-          "Microsoft.Extensions.Logging": "8.0.1"
-        }
-      },
       "Castle.Core": {
         "type": "Transitive",
         "resolved": "5.1.1",
         "contentHash": "rpYtIczkzGpf+EkZgDr9CClTdemhsrwA/W5hMoPjLkRFnXzH44zDLoovXeKtmxb1ykXK9aJVODSpiJml8CTw2g==",
         "dependencies": {
           "System.Diagnostics.EventLog": "6.0.0"
+        }
+      },
+      "FluentValidation": {
+        "type": "Transitive",
+        "resolved": "11.12.0",
+        "contentHash": "Wim3rI1nGZKO5S/lgJ0ZpD3W/uu1CECoJ8pETzC8av34ejr+jCDr4paKhSJRG0Ltcv8UjdxtYCynG+RUEfEUDA=="
+      },
+      "JuntosSomosMais.Ziggurat": {
+        "type": "Transitive",
+        "resolved": "0.1.0-test.1",
+        "contentHash": "YRr4hTzABvVtAEiYa++THrx8/yzDy7/2fuDyJpCY36NqXgTpgn61RwmPX6giW05lENTtUaAEAUtn3wWQ8Kwstg==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection": "8.0.1",
+          "Microsoft.Extensions.Hosting.Abstractions": "8.0.1",
+          "Microsoft.Extensions.Logging": "8.0.1"
         }
       },
       "Microsoft.CodeCoverage": {
@@ -1138,7 +1136,7 @@
         "type": "Project",
         "dependencies": {
           "FluentValidation": "[11.*, )",
-          "Ziggurat": "[8.*, )"
+          "JuntosSomosMais.Ziggurat": "[0.1.0-test.1, )"
         }
       }
     }

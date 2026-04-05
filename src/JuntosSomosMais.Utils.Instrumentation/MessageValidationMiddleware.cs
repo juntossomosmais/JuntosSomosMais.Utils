@@ -1,6 +1,6 @@
 using FluentValidation;
+using JuntosSomosMais.Ziggurat;
 using Microsoft.Extensions.Logging;
-using Ziggurat;
 
 namespace JuntosSomosMais.Utils.Instrumentation;
 
@@ -17,12 +17,12 @@ public class MessageValidationMiddleware<TMessage> : IConsumerMiddleware<TMessag
         _serviceProvider = serviceProvider;
     }
 
-    public async Task OnExecutingAsync(TMessage message, ConsumerServiceDelegate<TMessage> next)
+    public async Task OnExecutingAsync(TMessage message, ConsumerServiceDelegate<TMessage> next, CancellationToken cancellationToken)
     {
         var validator = _serviceProvider.GetService(typeof(IValidator<TMessage>)) as IValidator<TMessage> ?? throw new InvalidOperationException(
                 $"No IValidator<{typeof(TMessage).Name}> is registered. A validator is required when using {nameof(MessageValidationMiddleware<TMessage>)}.");
 
-        var result = await validator.ValidateAsync(message);
+        var result = await validator.ValidateAsync(message, cancellationToken);
 
         if (!result.IsValid)
         {
@@ -31,6 +31,6 @@ public class MessageValidationMiddleware<TMessage> : IConsumerMiddleware<TMessag
             return;
         }
 
-        await next(message);
+        await next(message, cancellationToken);
     }
 }

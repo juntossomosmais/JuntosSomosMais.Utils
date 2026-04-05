@@ -1,9 +1,9 @@
 using FluentValidation;
 using FluentValidation.Results;
+using JuntosSomosMais.Ziggurat;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
-using Ziggurat;
 
 namespace JuntosSomosMais.Utils.Instrumentation.Tests;
 
@@ -48,14 +48,14 @@ public class MessageValidationMiddlewareTests
         var middleware = CreateMiddleware();
         var message = CreateMessage();
         var nextCalled = false;
-        ConsumerServiceDelegate<TestMessage> next = _ =>
+        ConsumerServiceDelegate<TestMessage> next = (_, _) =>
         {
             nextCalled = true;
             return Task.CompletedTask;
         };
 
         // Act
-        await middleware.OnExecutingAsync(message, next);
+        await middleware.OnExecutingAsync(message, next, CancellationToken.None);
 
         // Assert
         Assert.True(nextCalled);
@@ -81,14 +81,14 @@ public class MessageValidationMiddlewareTests
         var middleware = CreateMiddleware();
         var message = CreateMessage();
         var nextCalled = false;
-        ConsumerServiceDelegate<TestMessage> next = _ =>
+        ConsumerServiceDelegate<TestMessage> next = (_, _) =>
         {
             nextCalled = true;
             return Task.CompletedTask;
         };
 
         // Act
-        await middleware.OnExecutingAsync(message, next);
+        await middleware.OnExecutingAsync(message, next, CancellationToken.None);
 
         // Assert
         Assert.False(nextCalled);
@@ -112,14 +112,47 @@ public class MessageValidationMiddlewareTests
 
         var middleware = CreateMiddleware();
         var message = CreateMessage();
-        ConsumerServiceDelegate<TestMessage> next = _ => Task.CompletedTask;
+        ConsumerServiceDelegate<TestMessage> next = (_, _) => Task.CompletedTask;
 
         // Act
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => middleware.OnExecutingAsync(message, next));
+            () => middleware.OnExecutingAsync(message, next, CancellationToken.None));
 
         // Assert
         Assert.Contains("TestMessage", exception.Message);
+    }
+
+    [Fact(DisplayName = "Should propagate CancellationToken to validator and next delegate")]
+    public async Task OnExecutingAsync_WithCancellationToken_ShouldPropagateToValidatorAndNext()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var token = cts.Token;
+
+        var validatorMock = new Mock<IValidator<TestMessage>>();
+        validatorMock
+            .Setup(v => v.ValidateAsync(It.IsAny<TestMessage>(), token))
+            .ReturnsAsync(new ValidationResult());
+
+        _serviceProviderMock
+            .Setup(sp => sp.GetService(typeof(IValidator<TestMessage>)))
+            .Returns(validatorMock.Object);
+
+        var middleware = CreateMiddleware();
+        var message = CreateMessage();
+        CancellationToken receivedToken = default;
+        ConsumerServiceDelegate<TestMessage> next = (_, ct) =>
+        {
+            receivedToken = ct;
+            return Task.CompletedTask;
+        };
+
+        // Act
+        await middleware.OnExecutingAsync(message, next, token);
+
+        // Assert
+        validatorMock.Verify(v => v.ValidateAsync(It.IsAny<TestMessage>(), token), Times.Once);
+        Assert.Equal(token, receivedToken);
     }
 
     [Fact(DisplayName = "Should throw ArgumentNullException when MiddlewareOptions is null")]

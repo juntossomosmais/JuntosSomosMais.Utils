@@ -8,11 +8,11 @@
         "resolved": "11.12.0",
         "contentHash": "Wim3rI1nGZKO5S/lgJ0ZpD3W/uu1CECoJ8pETzC8av34ejr+jCDr4paKhSJRG0Ltcv8UjdxtYCynG+RUEfEUDA=="
       },
-      "Ziggurat": {
+      "JuntosSomosMais.Ziggurat": {
         "type": "Direct",
-        "requested": "[8.*, )",
-        "resolved": "8.2.1",
-        "contentHash": "aDcQl0kYaCWrIH2W+uuFyINftxwnerPlE/QV83v680n3l6asV2J/6KHoCMBUkL9rapNY7YuieoDTFIFt2xjNzw==",
+        "requested": "[0.1.0-test.1, )",
+        "resolved": "0.1.0-test.1",
+        "contentHash": "YRr4hTzABvVtAEiYa++THrx8/yzDy7/2fuDyJpCY36NqXgTpgn61RwmPX6giW05lENTtUaAEAUtn3wWQ8Kwstg==",
         "dependencies": {
           "Microsoft.Extensions.DependencyInjection": "8.0.1",
           "Microsoft.Extensions.Hosting.Abstractions": "8.0.1",

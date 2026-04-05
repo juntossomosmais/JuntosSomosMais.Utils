@@ -27,7 +27,7 @@ Provides two FluentValidation-based validation components that can be shared acr
 
 - .NET 8 or later
 - `FluentValidation` v11+
-- `Ziggurat` v8+ (for message validation)
+- `JuntosSomosMais.Ziggurat` v0.1.0+ (for message validation)
 
 ### API validation filter
 
