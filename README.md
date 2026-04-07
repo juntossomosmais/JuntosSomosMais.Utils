@@ -7,14 +7,89 @@ Opinionated configurations and utilities for .NET projects at Juntos Somos Mais.
 | Package | Description |
 |---|---|
 | [JuntosSomosMais.Utils.GlobalExceptionHandler](https://www.nuget.org/packages/JuntosSomosMais.Utils.GlobalExceptionHandler/) | ASP.NET Core 8+ global exception handler built on the native `IExceptionHandler` infrastructure. |
+| [JuntosSomosMais.Utils.HealthChecks](https://www.nuget.org/packages/JuntosSomosMais.Utils.HealthChecks/) | Reusable health checks for SQL Server, Redis, RabbitMQ, Hangfire, and a standardized JSON response writer. |
 | [JuntosSomosMais.Utils.Instrumentation](https://www.nuget.org/packages/JuntosSomosMais.Utils.Instrumentation/) | FluentValidation instrumentation for ASP.NET Core APIs and Ziggurat message pipelines. |
 
 Install via CLI:
 
 ```bash
 dotnet add package JuntosSomosMais.Utils.GlobalExceptionHandler
+dotnet add package JuntosSomosMais.Utils.HealthChecks
 dotnet add package JuntosSomosMais.Utils.Instrumentation
 ```
+
+## JuntosSomosMais.Utils.HealthChecks
+
+Provides reusable `IHealthCheck` implementations and a standardized JSON response writer for ASP.NET Core health check endpoints.
+
+### Requirements
+
+- .NET 8 or later
+- Dependencies are pulled transitively: `Hangfire.Core`, `Microsoft.Data.SqlClient`, `RabbitMQ.Client`, `NRedisStack`
+
+### Available health checks
+
+| Extension method | What it checks |
+|---|---|
+| `AddSqlServerHealthCheck(connectionString)` | Opens a `SqlConnection` and executes `SELECT 1` |
+| `AddRedisHealthCheck(uri)` | Connects via `ConnectionMultiplexer` and sends a `PING` |
+| `AddRabbitMQHealthCheck(uri)` | Opens a TCP connection and creates a channel via AMQP |
+| `AddHangfireHealthCheck()` | Resolves `JobStorage` from DI and queries `FailedCount()` |
+
+### Quick start
+
+Register health checks in `Program.cs`:
+
+```csharp
+using JuntosSomosMais.Utils.HealthChecks;
+
+builder.Services.AddHealthChecks()
+    .AddSqlServerHealthCheck(connectionStringDatabase, tags: ["crucial"])
+    .AddRabbitMQHealthCheck(new Uri(connectionStringBroker))
+    .AddRedisHealthCheck(new Uri(connectionStringRedis))
+    .AddHangfireHealthCheck();
+```
+
+All extension methods support optional `name`, `failureStatus`, and `tags` parameters. Default names are `"sqlserver"`, `"redis"`, `"rabbitmq"`, and `"hangfire"`.
+
+### Response writer
+
+Use `HealthCheckResponseWriter.WriteAsync` to return a structured JSON response from your health check endpoints:
+
+```csharp
+app.MapHealthChecks("/healthz", new HealthCheckOptions
+{
+    ResponseWriter = HealthCheckResponseWriter.WriteAsync
+});
+
+app.MapHealthChecks("/healthz/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("crucial"),
+    ResponseWriter = HealthCheckResponseWriter.WriteAsync
+});
+```
+
+The response includes the overall status, per-entry status, duration, description, exception message (if any), tags, and data:
+
+```json
+{
+  "status": "Healthy",
+  "totalDuration": "00:00:00.0500000",
+  "entries": {
+    "sqlserver": {
+      "duration": "00:00:00.0300000",
+      "status": "Healthy",
+      "tags": ["crucial"]
+    },
+    "redis": {
+      "duration": "00:00:00.0200000",
+      "status": "Healthy"
+    }
+  }
+}
+```
+
+---
 
 ## JuntosSomosMais.Utils.Instrumentation
 
