@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>JuntosSomosMais.Utils.HealthChecks</RootNamespace>
+    <Description>Reusable health checks for SQL Server, Redis, RabbitMQ, Hangfire, and a standardized JSON response writer.</Description>
+    <PackageId>JuntosSomosMais.Utils.HealthChecks</PackageId>
+    <PackageTags>healthcheck aspnetcore sqlserver redis rabbitmq hangfire</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="JuntosSomosMais.Utils.HealthChecks.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Hangfire.Core" Version="1.*" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.*" />
+    <PackageReference Include="RabbitMQ.Client" Version="7.*" />
+    <PackageReference Include="NRedisStack" Version="0.*" />
+  </ItemGroup>
+</Project>
