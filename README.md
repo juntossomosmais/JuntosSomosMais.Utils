@@ -7,7 +7,7 @@ Opinionated configurations and utilities for .NET projects at Juntos Somos Mais.
 | Package | Description |
 |---|---|
 | [JuntosSomosMais.Utils.GlobalExceptionHandler](https://www.nuget.org/packages/JuntosSomosMais.Utils.GlobalExceptionHandler/) | ASP.NET Core 8+ global exception handler built on the native `IExceptionHandler` infrastructure. |
-| [JuntosSomosMais.Utils.HealthChecks](https://www.nuget.org/packages/JuntosSomosMais.Utils.HealthChecks/) | Reusable health checks for SQL Server, Redis, RabbitMQ, Hangfire, and a standardized JSON response writer. |
+| [JuntosSomosMais.Utils.HealthChecks](https://www.nuget.org/packages/JuntosSomosMais.Utils.HealthChecks/) | Reusable health checks for SQL Server, Redis, RabbitMQ, Hangfire, Azure Blob Storage, Azure Service Bus, MongoDB, Elasticsearch, and a standardized JSON response writer. |
 | [JuntosSomosMais.Utils.Instrumentation](https://www.nuget.org/packages/JuntosSomosMais.Utils.Instrumentation/) | FluentValidation instrumentation for ASP.NET Core APIs and Ziggurat message pipelines. |
 
 Install via CLI:
@@ -25,7 +25,7 @@ Provides reusable `IHealthCheck` implementations and a standardized JSON respons
 ### Requirements
 
 - .NET 8 or later
-- Dependencies are pulled transitively: `Hangfire.Core`, `Microsoft.Data.SqlClient`, `RabbitMQ.Client`, `NRedisStack`
+- Dependencies are pulled transitively: `Hangfire.Core`, `Microsoft.Data.SqlClient`, `RabbitMQ.Client`, `NRedisStack`, `Azure.Storage.Blobs`, `Azure.Messaging.ServiceBus`, `MongoDB.Driver`
 
 ### Available health checks
 
@@ -35,6 +35,11 @@ Provides reusable `IHealthCheck` implementations and a standardized JSON respons
 | `AddRedisHealthCheck(uri)` | Connects via `ConnectionMultiplexer` and sends a `PING` |
 | `AddRabbitMQHealthCheck(uri)` | Opens a TCP connection and creates a channel via AMQP |
 | `AddHangfireHealthCheck()` | Resolves `JobStorage` from DI and queries `FailedCount()` |
+| `AddAzureBlobStorageHealthCheck(connectionString)` | Gets service properties or container properties via `BlobServiceClient` |
+| `AddAzureServiceBusQueueHealthCheck(connectionString, queueName)` | Gets queue runtime properties via `ServiceBusAdministrationClient` |
+| `AddAzureServiceBusTopicHealthCheck(connectionString, topicName)` | Gets topic runtime properties via `ServiceBusAdministrationClient` |
+| `AddMongoDbHealthCheck(connectionString)` | Pings a database or lists database names via `IMongoClient` |
+| `AddElasticsearchHealthCheck(uri)` | HTTP GET to the Elasticsearch endpoint (connectivity check) |
 
 ### Quick start
 
@@ -47,10 +52,15 @@ builder.Services.AddHealthChecks()
     .AddSqlServerHealthCheck(connectionStringDatabase, tags: ["crucial"])
     .AddRabbitMQHealthCheck(new Uri(connectionStringBroker))
     .AddRedisHealthCheck(new Uri(connectionStringRedis))
-    .AddHangfireHealthCheck();
+    .AddHangfireHealthCheck()
+    .AddAzureBlobStorageHealthCheck(connectionStringBlobStorage)
+    .AddAzureServiceBusQueueHealthCheck(connectionStringServiceBus, "my-queue")
+    .AddAzureServiceBusTopicHealthCheck(connectionStringServiceBus, "my-topic")
+    .AddMongoDbHealthCheck(connectionStringMongo, databaseName: "mydb")
+    .AddElasticsearchHealthCheck(new Uri(elasticsearchEndpoint));
 ```
 
-All extension methods support optional `name`, `failureStatus`, and `tags` parameters. Default names are `"sqlserver"`, `"redis"`, `"rabbitmq"`, and `"hangfire"`.
+All extension methods support optional `name`, `failureStatus`, and `tags` parameters. Default names are `"sqlserver"`, `"redis"`, `"rabbitmq"`, `"hangfire"`, `"azureblobstorage"`, `"azureservicebus-queue"`, `"azureservicebus-topic"`, `"mongodb"`, and `"elasticsearch"`.
 
 ### Response writer
 
