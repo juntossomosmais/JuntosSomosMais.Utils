@@ -68,8 +68,8 @@ public class CustomExceptionHandlerActivityTests : IClassFixture<ActivityWebAppF
         Assert.NotEqual(ActivityStatusCode.Error, activity.Status);
     }
 
-    [Fact(DisplayName = "Should enrich Activity with exception tags for validation exceptions")]
-    public async Task TryHandleAsync_ValidationException_ShouldEnrichActivityWithExceptionTags()
+    [Fact(DisplayName = "Should enrich Activity with exception type and message but not stacktrace for validation exceptions")]
+    public async Task TryHandleAsync_ValidationException_ShouldEnrichActivityWithoutStacktrace()
     {
         // Arrange
         var (listener, stoppedActivities) = CreateActivityListener();
@@ -84,13 +84,15 @@ public class CustomExceptionHandlerActivityTests : IClassFixture<ActivityWebAppF
         var activity = Assert.Single(stoppedActivities);
         var exceptionType = GetTagValue(activity, "exception.type");
         var exceptionMessage = GetTagValue(activity, "exception.message");
+        var stacktrace = GetTagValue(activity, "exception.stacktrace");
         Assert.Equal("FluentValidation.ValidationException", exceptionType);
         Assert.NotNull(exceptionMessage);
         Assert.NotEmpty(exceptionMessage);
+        Assert.Null(stacktrace);
     }
 
-    [Fact(DisplayName = "Should NOT set ActivityStatusCode.Error for attributed exceptions with non-5xx status codes")]
-    public async Task TryHandleAsync_AttributedException404_ShouldNotSetActivityStatusCodeError()
+    [Fact(DisplayName = "Should NOT set ActivityStatusCode.Error and NOT include stacktrace for attributed exceptions with non-5xx status codes")]
+    public async Task TryHandleAsync_AttributedException404_ShouldNotSetActivityStatusCodeErrorAndNoStacktrace()
     {
         // Arrange
         var (listener, stoppedActivities) = CreateActivityListener();
@@ -102,7 +104,7 @@ public class CustomExceptionHandlerActivityTests : IClassFixture<ActivityWebAppF
         // Assert
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         var activity = Assert.Single(stoppedActivities);
-        AssertActivityHasExceptionTags(activity, typeof(NotFoundException).FullName!, "Customer not found");
+        AssertActivityHasExceptionTagsWithoutStacktrace(activity, typeof(NotFoundException).FullName!, "Customer not found");
         Assert.NotEqual(ActivityStatusCode.Error, activity.Status);
     }
 
@@ -151,6 +153,17 @@ public class CustomExceptionHandlerActivityTests : IClassFixture<ActivityWebAppF
         Assert.NotNull(stacktrace);
         Assert.Contains(expectedType, stacktrace);
         Assert.Contains(expectedMessage, stacktrace);
+    }
+
+    private static void AssertActivityHasExceptionTagsWithoutStacktrace(Activity activity, string expectedType, string expectedMessage)
+    {
+        var exceptionType = GetTagValue(activity, "exception.type");
+        var exceptionMessage = GetTagValue(activity, "exception.message");
+        var stacktrace = GetTagValue(activity, "exception.stacktrace");
+
+        Assert.Equal(expectedType, exceptionType);
+        Assert.Equal(expectedMessage, exceptionMessage);
+        Assert.Null(stacktrace);
     }
 
     private static (ActivityListener listener, ConcurrentBag<Activity> stoppedActivities) CreateActivityListener()

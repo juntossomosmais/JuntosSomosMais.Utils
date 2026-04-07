@@ -61,7 +61,7 @@ public class CustomExceptionHandler : IExceptionHandler
         {
             EnrichActivityWithException(exception, StatusCodes.Status400BadRequest);
 
-            _logger.LogError(exception, "Occurred a validation exception - TraceId:{TraceId} - Message:{Message}",
+            _logger.LogDebug(exception, "Occurred a validation exception - TraceId:{TraceId} - Message:{Message}",
                 httpContext.TraceIdentifier, exception.Message);
 
             var errors = validationException.Errors
@@ -94,10 +94,14 @@ public class CustomExceptionHandler : IExceptionHandler
 
         var requestId = httpContext.TraceIdentifier;
 
-        _logger.LogError(exception, "Occurred an exception - TraceId:{TraceId} - Message:{Message}", requestId, exception.Message);
-
         var attr = GetExceptionStatusCodeAttribute(exception.GetType());
         var statusCode = attr?.StatusCode ?? DefaultErrorStatusCode;
+
+        if (statusCode >= 500)
+            _logger.LogError(exception, "Occurred an exception - TraceId:{TraceId} - Message:{Message}", requestId, exception.Message);
+        else
+            _logger.LogDebug(exception, "Occurred an exception - TraceId:{TraceId} - Message:{Message}", requestId, exception.Message);
+
         var exceptionType = attr is not null
             ? attr.ExceptionType ?? GetDefaultExceptionType(attr.StatusCode)
             : DefaultExceptionType;
@@ -107,7 +111,7 @@ public class CustomExceptionHandler : IExceptionHandler
         httpContext.Response.StatusCode = statusCode;
         httpContext.Response.ContentType = "application/json";
 
-        var responseBody = BuildResponse(httpContext, exception, statusCode, exceptionType);
+        var responseBody = BuildResponse(httpContext, exception, statusCode, exceptionType, requestId);
 
         await httpContext.Response.WriteAsync(
             JsonSerializer.Serialize(responseBody, _serializerOptions),
@@ -117,7 +121,7 @@ public class CustomExceptionHandler : IExceptionHandler
         return true;
     }
 
-    private object BuildResponse(HttpContext httpContext, Exception exception, int statusCode, string exceptionType)
+    private object BuildResponse(HttpContext httpContext, Exception exception, int statusCode, string exceptionType, string requestId)
     {
         if (_options.CustomizeResponse is not null)
         {
@@ -130,7 +134,6 @@ public class CustomExceptionHandler : IExceptionHandler
             });
         }
 
-        var requestId = httpContext.TraceIdentifier;
         var friendlyMsg = string.Format(FriendlyMessage, requestId);
 
         if (_options.ViewStackTrace)
@@ -168,9 +171,11 @@ public class CustomExceptionHandler : IExceptionHandler
 
         activity.SetTag("exception.type", exception.GetType().FullName);
         activity.SetTag("exception.message", exception.Message);
-        activity.SetTag("exception.stacktrace", exception.ToString());
 
         if (statusCode >= 500)
+        {
+            activity.SetTag("exception.stacktrace", exception.ToString());
             activity.SetStatus(System.Diagnostics.ActivityStatusCode.Error, exception.Message);
+        }
     }
 }
