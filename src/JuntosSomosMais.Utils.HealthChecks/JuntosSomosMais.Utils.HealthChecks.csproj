@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>JuntosSomosMais.Utils.HealthChecks</RootNamespace>
-    <Description>Reusable health checks for SQL Server, Redis, RabbitMQ, Hangfire, and a standardized JSON response writer.</Description>
+    <Description>Reusable health checks for SQL Server, Redis, RabbitMQ, Hangfire, Azure Blob Storage, Azure Service Bus, MongoDB, Elasticsearch, and a standardized JSON response writer.</Description>
     <PackageId>JuntosSomosMais.Utils.HealthChecks</PackageId>
-    <PackageTags>healthcheck aspnetcore sqlserver redis rabbitmq hangfire</PackageTags>
+    <PackageTags>healthcheck aspnetcore sqlserver redis rabbitmq hangfire azureblobstorage azureservicebus mongodb elasticsearch</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="JuntosSomosMais.Utils.HealthChecks.Tests" />
@@ -12,9 +12,12 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.*" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.*" />
     <PackageReference Include="Hangfire.Core" Version="1.*" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.*" />
-    <PackageReference Include="RabbitMQ.Client" Version="7.*" />
+    <PackageReference Include="MongoDB.Driver" Version="2.*" />
     <PackageReference Include="NRedisStack" Version="0.*" />
+    <PackageReference Include="RabbitMQ.Client" Version="7.*" />
   </ItemGroup>
 </Project>

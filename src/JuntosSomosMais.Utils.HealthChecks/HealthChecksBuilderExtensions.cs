@@ -48,4 +48,58 @@ public static class HealthChecksBuilderExtensions
             failureStatus,
             tags ?? []));
     }
+
+    public static IHealthChecksBuilder AddAzureBlobStorageHealthCheck(
+        this IHealthChecksBuilder builder,
+        string connectionString,
+        string? containerName = null,
+        string name = "azureblobstorage",
+        HealthStatus? failureStatus = null,
+        IEnumerable<string>? tags = null)
+    {
+        return builder.AddCheck(name, new AzureBlobStorageHealthCheck(connectionString, containerName), failureStatus, tags ?? []);
+    }
+
+    public static IHealthChecksBuilder AddAzureServiceBusQueueHealthCheck(
+        this IHealthChecksBuilder builder,
+        string connectionString,
+        string queueName,
+        string name = "azureservicebus-queue",
+        HealthStatus? failureStatus = null,
+        IEnumerable<string>? tags = null)
+    {
+        return builder.AddCheck(name, new AzureServiceBusHealthCheck(connectionString, queueName: queueName), failureStatus, tags ?? []);
+    }
+
+    public static IHealthChecksBuilder AddAzureServiceBusTopicHealthCheck(
+        this IHealthChecksBuilder builder,
+        string connectionString,
+        string topicName,
+        string name = "azureservicebus-topic",
+        HealthStatus? failureStatus = null,
+        IEnumerable<string>? tags = null)
+    {
+        return builder.AddCheck(name, new AzureServiceBusHealthCheck(connectionString, topicName: topicName), failureStatus, tags ?? []);
+    }
+
+    public static IHealthChecksBuilder AddMongoDbHealthCheck(
+        this IHealthChecksBuilder builder,
+        string connectionString,
+        string? databaseName = null,
+        string name = "mongodb",
+        HealthStatus? failureStatus = null,
+        IEnumerable<string>? tags = null)
+    {
+        return builder.AddCheck(name, new MongoDbHealthCheck(connectionString, databaseName), failureStatus, tags ?? []);
+    }
+
+    public static IHealthChecksBuilder AddElasticsearchHealthCheck(
+        this IHealthChecksBuilder builder,
+        Uri uri,
+        string name = "elasticsearch",
+        HealthStatus? failureStatus = null,
+        IEnumerable<string>? tags = null)
+    {
+        return builder.AddCheck(name, new ElasticsearchHealthCheck(uri), failureStatus, tags ?? []);
+    }
 }
