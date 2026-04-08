@@ -10,6 +10,6 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FluentValidation" Version="11.*" />
-    <PackageReference Include="JuntosSomosMais.Ziggurat" Version="0.1.0-test.1" />
+    <PackageReference Include="JuntosSomosMais.Ziggurat" Version="0.1.0-test.2" />
   </ItemGroup>
 </Project>

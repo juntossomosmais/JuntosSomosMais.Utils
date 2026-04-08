@@ -10,9 +10,9 @@
       },
       "JuntosSomosMais.Ziggurat": {
         "type": "Direct",
-        "requested": "[0.1.0-test.1, )",
-        "resolved": "0.1.0-test.1",
-        "contentHash": "YRr4hTzABvVtAEiYa++THrx8/yzDy7/2fuDyJpCY36NqXgTpgn61RwmPX6giW05lENTtUaAEAUtn3wWQ8Kwstg==",
+        "requested": "[0.1.0-test.2, )",
+        "resolved": "0.1.0-test.2",
+        "contentHash": "r7lUOWE82wOsbLVrP7JXM5ZECIsOM36rnaw/1ZEn/xDh7MznCi31p8eehD8OTA4AsS7sdRggmPTW7Wm0SI1sQA==",
         "dependencies": {
           "Microsoft.Extensions.DependencyInjection": "8.0.1",
           "Microsoft.Extensions.Hosting.Abstractions": "8.0.1",
