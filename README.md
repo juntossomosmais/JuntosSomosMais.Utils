@@ -9,6 +9,7 @@ Opinionated configurations and utilities for .NET projects at Juntos Somos Mais.
 | [JuntosSomosMais.Utils.GlobalExceptionHandler](https://www.nuget.org/packages/JuntosSomosMais.Utils.GlobalExceptionHandler/) | ASP.NET Core 8+ global exception handler built on the native `IExceptionHandler` infrastructure. |
 | [JuntosSomosMais.Utils.HealthChecks](https://www.nuget.org/packages/JuntosSomosMais.Utils.HealthChecks/) | Reusable health checks for SQL Server, Redis, RabbitMQ, Hangfire, Azure Blob Storage, Azure Service Bus, MongoDB, Elasticsearch, and a standardized JSON response writer. |
 | [JuntosSomosMais.Utils.Instrumentation](https://www.nuget.org/packages/JuntosSomosMais.Utils.Instrumentation/) | FluentValidation instrumentation for ASP.NET Core APIs and Ziggurat message pipelines. |
+| [JuntosSomosMais.Utils.CnpjValidation](https://www.nuget.org/packages/JuntosSomosMais.Utils.CnpjValidation/) | CNPJ validator supporting both the classic numeric format and the new alphanumeric format introduced in July 2026. |
 
 Install via CLI:
 
@@ -16,6 +17,7 @@ Install via CLI:
 dotnet add package JuntosSomosMais.Utils.GlobalExceptionHandler
 dotnet add package JuntosSomosMais.Utils.HealthChecks
 dotnet add package JuntosSomosMais.Utils.Instrumentation
+dotnet add package JuntosSomosMais.Utils.CnpjValidation
 ```
 
 ## JuntosSomosMais.Utils.HealthChecks
@@ -624,6 +626,100 @@ public class ProductsController : ControllerBase
         db.Products.Add(product);
         await db.SaveChangesAsync();
         return CreatedAtAction(nameof(GetAsync), new { id = product.Id }, product);
+    }
+}
+```
+
+---
+
+## JuntosSomosMais.Utils.CnpjValidation
+
+Validates Brazilian CNPJs in both the classic all-numeric format and the new alphanumeric format introduced in July 2026. Handles masked and unmasked input, and is case-insensitive.
+
+### Requirements
+
+- .NET 8 or later
+- No additional dependencies
+
+### Available methods
+
+| Method | Description |
+|---|---|
+| `CnpjValidator.Validate(cnpj)` | Validates format and check digits. Accepts masked/unmasked and upper/lowercase input. |
+| `CnpjValidator.IsValidFormat(cnpj)` | Validates only the structural format via regex, without computing check digits. |
+| `cnpj.StripCnpjMask()` | Removes mask characters (`.`, `/`, `-`) and converts to uppercase. |
+
+### Quick start
+
+```csharp
+using JuntosSomosMais.Utils.CnpjValidation;
+
+// Numeric format (classic)
+CnpjValidator.Validate("11.222.333/0001-81"); // true
+CnpjValidator.Validate("11222333000181");      // true
+
+// Alphanumeric format (new, from July 2026)
+CnpjValidator.Validate("L20T2TJN000118");      // true
+CnpjValidator.Validate("L2.0T2.TJN/0001-18"); // true
+CnpjValidator.Validate("l20t2tjn000118");      // true — case-insensitive
+
+// Invalid
+CnpjValidator.Validate("00000000000000");      // false — all zeros
+CnpjValidator.Validate("11222333000199");      // false — wrong check digits
+CnpjValidator.IsValidFormat("L2.0T2.TJN/0001-1A"); // false - check digit char
+CnpjValidator.Validate(null);                  // false
+```
+
+### Format-only check
+
+Use `IsValidFormat` when you only need to check the shape of the string (e.g., before attempting a database lookup), without computing the check digits:
+
+```csharp
+CnpjValidator.IsValidFormat("11.222.333/0001-81"); // true
+CnpjValidator.IsValidFormat("L2.0T2.TJN/0001-18"); // true
+CnpjValidator.IsValidFormat("abc");                 // false
+CnpjValidator.IsValidFormat(null);                  // false
+```
+
+### Stripping the mask
+
+```csharp
+"11.222.333/0001-81".StripCnpjMask();  // "11222333000181"
+"L2.0T2.TJN/0001-18".StripCnpjMask(); // "L20T2TJN000118"
+"l20t2tjn000118".StripCnpjMask();     // "L20T2TJN000118"
+```
+
+### Usage in a service
+
+```csharp
+using JuntosSomosMais.Utils.CnpjValidation;
+
+public class CustomerService
+{
+    public void Registrar(string cnpj)
+    {
+        if (!CnpjValidator.Validate(cnpj))
+            throw new DomainException("CNPJ inválido.");
+
+        // ...
+    }
+}
+```
+
+### Usage with FluentValidation
+
+```csharp
+using FluentValidation;
+using JuntosSomosMais.Utils.CnpjValidation;
+
+public class CriarEmpresaRequestValidator : AbstractValidator<CriarEmpresaRequest>
+{
+    public CreateCustomerRequestValidator()
+    {
+        RuleFor(x => x.Cnpj)
+            .NotEmpty()
+            .Must(CnpjValidator.Validate)
+            .WithMessage("CNPJ inválido.");
     }
 }
 ```
