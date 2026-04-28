@@ -32,10 +32,7 @@ public static partial class CnpjValidator
             sum += CharToValue(tempCnpj[i]) * _multi1[i];
 
         var rest = sum % 11;
-        if (rest < 2)
-            rest = 0;
-        else
-            rest = 11 - rest;
+        rest = rest < 2 ? 0 : 11 - rest;
 
         var digit = rest.ToString();
         tempCnpj += digit;
@@ -45,11 +42,7 @@ public static partial class CnpjValidator
             sum += CharToValue(tempCnpj[i]) * _multi2[i];
 
         rest = sum % 11;
-
-        if (rest < 2)
-            rest = 0;
-        else
-            rest = 11 - rest;
+        rest = rest < 2 ? 0 : 11 - rest;
 
         digit += rest;
 
