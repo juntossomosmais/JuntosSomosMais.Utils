@@ -20,9 +20,6 @@ public static partial class CnpjValidator
         if (cnpj.Length != 14 || cnpj.All(c => c == '0'))
             return false;
 
-        if (!cnpj[..12].All(c => char.IsDigit(c) || (c >= 'A' && c <= 'Z')))
-            return false;
-
         if (!cnpj[12..].All(char.IsDigit))
             return false;
 

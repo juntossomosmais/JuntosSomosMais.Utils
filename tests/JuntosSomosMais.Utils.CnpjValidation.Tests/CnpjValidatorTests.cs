@@ -57,7 +57,7 @@ public class CnpjValidatorTests
 
     [Theory(DisplayName = "Should return false when CNPJ body contains invalid characters")]
     [InlineData("1122233!000181")]   // special char in body
-    [InlineData("11222333000A81")]   // letter in check-digit area
+    [InlineData("11222333000A8A")]   // letter in check-digit area
     public void Validate_InvalidCharacters_ReturnsFalse(string cnpj)
     {
         // Arrange & Act
@@ -196,10 +196,10 @@ public class CnpjValidatorTests
 
     [Theory(DisplayName = "Should return false for invalid CNPJ formats")]
     [InlineData("")]
-    [InlineData("1122233300018")]        // too short
-    [InlineData("112223330001810")]      // too long
-    [InlineData("11.222.333/0001-8")]   // incomplete
-    [InlineData("11.222.333/0001-AB")]  // letters in check-digit positions
+    [InlineData("1122233300018")]
+    [InlineData("112223330001810")]
+    [InlineData("11.222.333/0001-8")]
+    [InlineData("11.222.333/0001-AB")]
     public void IsValidFormat_InvalidFormat_ReturnsFalse(string cnpj)
     {
         // Arrange & Act
