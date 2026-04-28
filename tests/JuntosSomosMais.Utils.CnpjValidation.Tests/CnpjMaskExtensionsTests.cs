@@ -4,6 +4,19 @@ namespace JuntosSomosMais.Utils.CnpjValidation.Tests;
 
 public class CnpjMaskExtensionsTests
 {
+    [Fact(DisplayName = "Should return null when input is null")]
+    public void StripCnpjMask_NullInput_ReturnsNull()
+    {
+        // Arrange
+        string cnpj = null!;
+
+        // Act
+        var result = cnpj.StripCnpjMask();
+
+        // Assert
+        Assert.Null(result);
+    }
+
     [Fact(DisplayName = "Should strip dots, slash and dash from masked numeric CNPJ")]
     public void StripCnpjMask_MaskedNumericCnpj_ReturnsUnmasked()
     {
