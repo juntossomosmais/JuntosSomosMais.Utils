@@ -12,41 +12,41 @@ public static partial class CnpjValidator
 
     public static bool Validate(string? cnpj)
     {
-        if (!IsValidFormat(cnpj))
+        if (string.IsNullOrWhiteSpace(cnpj) || !IsValidFormat(cnpj))
             return false;
 
-        cnpj = cnpj!.StripCnpjMask()!;
+        Span<char> buf = stackalloc char[cnpj.Length];
+        var n = 0;
+        foreach (var c in cnpj)
+            if (char.IsAsciiLetterOrDigit(c))
+                buf[n++] = char.ToUpperInvariant(c);
 
-        if (cnpj.All(c => c == '0'))
+        var stripped = buf[..n];
+
+        var allZeros = true;
+        foreach (var c in stripped)
+            if (c != '0') { allZeros = false; break; }
+        if (allZeros)
             return false;
 
-        if (!cnpj[12..].All(char.IsDigit))
+        var firstDigit = CalculateDigit(_multi1, stripped[..12]);
+
+        if (stripped[12] - '0' != firstDigit)
             return false;
 
-        var tempCnpj = cnpj[..12];
+        var secondDigit = CalculateDigit(_multi2, stripped[..13]);
+        return stripped[13] - '0' == secondDigit;
+    }
+
+    private static int CalculateDigit(int[] weights, ReadOnlySpan<char> digits)
+    {
         var sum = 0;
-        for (var i = 0; i < 12; i++)
-            sum += CharToValue(tempCnpj[i]) * _multi1[i];
+        for (var i = 0; i < weights.Length; i++)
+            sum += weights[i] * (digits[i] - '0');
 
-        var rest = sum % 11;
-        rest = rest < 2 ? 0 : 11 - rest;
-
-        var digit = rest.ToString();
-        tempCnpj += digit;
-        sum = 0;
-
-        for (var i = 0; i < 13; i++)
-            sum += CharToValue(tempCnpj[i]) * _multi2[i];
-
-        rest = sum % 11;
-        rest = rest < 2 ? 0 : 11 - rest;
-
-        digit += rest;
-
-        return cnpj.EndsWith(digit);
+        var remainder = sum % 11;
+        return remainder < 2 ? 0 : 11 - remainder;
     }
 
     public static bool IsValidFormat(string? cnpj) => cnpj != null && CnpjFormatRegex().IsMatch(cnpj);
-
-    private static int CharToValue(char c) => c - '0';
 }

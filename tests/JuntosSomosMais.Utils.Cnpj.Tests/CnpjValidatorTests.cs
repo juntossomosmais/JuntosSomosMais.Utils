@@ -209,15 +209,17 @@ public class CnpjValidatorTests
         Assert.False(result);
     }
 
-    [Theory(DisplayName = "Validate and IsValidFormat should agree on structural validity")]
+    [Theory(DisplayName = "Should return false for structurally invalid inputs")]
     [InlineData("11.222.3.33/0001-81")]
     [InlineData("11_222_333/0001-81")]
     [InlineData("11 222 333 0001 81")]
     [InlineData("CNPJ 11222333000181")]
-    public void ValidateAndIsValidFormat_ShouldAgreeOnMalformedInputs(string cnpj)
+    public void Validate_StructurallyInvalidInput_ReturnsFalse(string cnpj)
     {
-        // Whatever IsValidFormat says about structure, Validate must respect it.
-        if (!CnpjValidator.IsValidFormat(cnpj))
-            Assert.False(CnpjValidator.Validate(cnpj));
+        // Arrange & Act
+        var result = CnpjValidator.Validate(cnpj);
+
+        // Assert
+        Assert.False(result);
     }
 }
