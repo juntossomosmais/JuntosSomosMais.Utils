@@ -25,7 +25,8 @@ public static partial class CnpjValidator
 
         var allZeros = true;
         foreach (var c in stripped)
-            if (c != '0') { allZeros = false; break; }
+            if (c != '0')
+            { allZeros = false; break; }
         if (allZeros)
             return false;
 
