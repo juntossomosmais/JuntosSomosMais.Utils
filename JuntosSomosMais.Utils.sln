@@ -19,9 +19,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.Healt
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.HealthChecks.Tests", "tests\JuntosSomosMais.Utils.HealthChecks.Tests\JuntosSomosMais.Utils.HealthChecks.Tests.csproj", "{DA988CB9-A9F7-417E-8781-4E82A2CD3CF3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.CnpjValidation", "src\JuntosSomosMais.Utils.CnpjValidation\JuntosSomosMais.Utils.CnpjValidation.csproj", "{A3B7C2D5-E9F1-4A6B-8C3D-7E0F2A9B4C6D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.Cnpj", "src\JuntosSomosMais.Utils.Cnpj\JuntosSomosMais.Utils.Cnpj.csproj", "{A3B7C2D5-E9F1-4A6B-8C3D-7E0F2A9B4C6D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.CnpjValidation.Tests", "tests\JuntosSomosMais.Utils.CnpjValidation.Tests\JuntosSomosMais.Utils.CnpjValidation.Tests.csproj", "{B6C1D4E8-F2A5-4B9C-8D6E-1F3A7B5C9D2E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.Cnpj.Tests", "tests\JuntosSomosMais.Utils.Cnpj.Tests\JuntosSomosMais.Utils.Cnpj.Tests.csproj", "{B6C1D4E8-F2A5-4B9C-8D6E-1F3A7B5C9D2E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

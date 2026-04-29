@@ -3,6 +3,6 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\JuntosSomosMais.Utils.CnpjValidation\JuntosSomosMais.Utils.CnpjValidation.csproj" />
+    <ProjectReference Include="..\..\src\JuntosSomosMais.Utils.Cnpj\JuntosSomosMais.Utils.Cnpj.csproj" />
   </ItemGroup>
 </Project>

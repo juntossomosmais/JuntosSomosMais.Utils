@@ -9,7 +9,7 @@ Opinionated configurations and utilities for .NET projects at Juntos Somos Mais.
 | [JuntosSomosMais.Utils.GlobalExceptionHandler](https://www.nuget.org/packages/JuntosSomosMais.Utils.GlobalExceptionHandler/) | ASP.NET Core 8+ global exception handler built on the native `IExceptionHandler` infrastructure. |
 | [JuntosSomosMais.Utils.HealthChecks](https://www.nuget.org/packages/JuntosSomosMais.Utils.HealthChecks/) | Reusable health checks for SQL Server, Redis, RabbitMQ, Hangfire, Azure Blob Storage, Azure Service Bus, MongoDB, Elasticsearch, and a standardized JSON response writer. |
 | [JuntosSomosMais.Utils.Instrumentation](https://www.nuget.org/packages/JuntosSomosMais.Utils.Instrumentation/) | FluentValidation instrumentation for ASP.NET Core APIs and Ziggurat message pipelines. |
-| [JuntosSomosMais.Utils.CnpjValidation](https://www.nuget.org/packages/JuntosSomosMais.Utils.CnpjValidation/) | CNPJ validator supporting both the classic numeric format and the new alphanumeric format introduced in July 2026. |
+| [JuntosSomosMais.Utils.Cnpj](https://www.nuget.org/packages/JuntosSomosMais.Utils.Cnpj/) | CNPJ validator supporting both the classic numeric format and the new alphanumeric format introduced in July 2026. |
 
 Install via CLI:
 
@@ -17,7 +17,7 @@ Install via CLI:
 dotnet add package JuntosSomosMais.Utils.GlobalExceptionHandler
 dotnet add package JuntosSomosMais.Utils.HealthChecks
 dotnet add package JuntosSomosMais.Utils.Instrumentation
-dotnet add package JuntosSomosMais.Utils.CnpjValidation
+dotnet add package JuntosSomosMais.Utils.Cnpj
 ```
 
 ## JuntosSomosMais.Utils.HealthChecks
@@ -632,7 +632,7 @@ public class ProductsController : ControllerBase
 
 ---
 
-## JuntosSomosMais.Utils.CnpjValidation
+## JuntosSomosMais.Utils.Cnpj
 
 Validates Brazilian CNPJs in both the classic all-numeric format and the new alphanumeric format introduced in July 2026. Handles masked and unmasked input, and is case-insensitive.
 
@@ -652,7 +652,7 @@ Validates Brazilian CNPJs in both the classic all-numeric format and the new alp
 ### Quick start
 
 ```csharp
-using JuntosSomosMais.Utils.CnpjValidation;
+using JuntosSomosMais.Utils.Cnpj;
 
 // Numeric format (classic)
 CnpjValidator.Validate("11.222.333/0001-81"); // true
@@ -692,7 +692,7 @@ CnpjValidator.IsValidFormat(null);                  // false
 ### Usage in a service
 
 ```csharp
-using JuntosSomosMais.Utils.CnpjValidation;
+using JuntosSomosMais.Utils.Cnpj;
 
 public class CustomerService
 {
@@ -710,7 +710,7 @@ public class CustomerService
 
 ```csharp
 using FluentValidation;
-using JuntosSomosMais.Utils.CnpjValidation;
+using JuntosSomosMais.Utils.Cnpj;
 
 public class CriarEmpresaRequestValidator : AbstractValidator<CriarEmpresaRequest>
 {

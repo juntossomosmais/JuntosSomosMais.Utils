@@ -1,4 +1,4 @@
-namespace JuntosSomosMais.Utils.CnpjValidation;
+namespace JuntosSomosMais.Utils.Cnpj;
 
 public static class CnpjMaskExtensions
 {

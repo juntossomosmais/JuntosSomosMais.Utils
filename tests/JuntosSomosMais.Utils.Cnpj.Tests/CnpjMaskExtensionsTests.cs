@@ -1,6 +1,6 @@
 using Xunit;
 
-namespace JuntosSomosMais.Utils.CnpjValidation.Tests;
+namespace JuntosSomosMais.Utils.Cnpj.Tests;
 
 public class CnpjMaskExtensionsTests
 {

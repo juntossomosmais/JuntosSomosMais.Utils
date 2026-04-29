@@ -1013,7 +1013,7 @@
           "xunit.extensibility.core": "[2.6.3]"
         }
       },
-      "juntossomosmais.utils.cnpjvalidation": {
+      "juntossomosmais.utils.cnpj": {
         "type": "Project"
       }
     }

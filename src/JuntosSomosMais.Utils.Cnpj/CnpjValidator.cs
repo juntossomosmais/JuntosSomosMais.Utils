@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace JuntosSomosMais.Utils.CnpjValidation;
+namespace JuntosSomosMais.Utils.Cnpj;
 
 public static partial class CnpjValidator
 {
