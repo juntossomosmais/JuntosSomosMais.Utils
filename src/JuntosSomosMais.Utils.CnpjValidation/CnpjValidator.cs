@@ -10,14 +10,14 @@ public static partial class CnpjValidator
     private static readonly int[] _multi1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
     private static readonly int[] _multi2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
 
-    public static bool Validate(string cnpj)
+    public static bool Validate(string? cnpj)
     {
-        if (cnpj == null)
+        if (!IsValidFormat(cnpj))
             return false;
 
-        cnpj = cnpj.StripCnpjMask()!;
+        cnpj = cnpj!.StripCnpjMask()!;
 
-        if (cnpj.Length != 14 || cnpj.All(c => c == '0'))
+        if (cnpj.All(c => c == '0'))
             return false;
 
         if (!cnpj[12..].All(char.IsDigit))
@@ -46,7 +46,7 @@ public static partial class CnpjValidator
         return cnpj.EndsWith(digit);
     }
 
-    public static bool IsValidFormat(string cnpj) => cnpj != null && CnpjFormatRegex().IsMatch(cnpj);
+    public static bool IsValidFormat(string? cnpj) => cnpj != null && CnpjFormatRegex().IsMatch(cnpj);
 
     private static int CharToValue(char c) => c - '0';
 }
