@@ -3,7 +3,9 @@ name: Publish package
 on:
   push:
     tags:
-      - '[0-9]+.[0-9]+.[0-9]+*'
+      - 'globalexceptionhandler/v[0-9]+.[0-9]+.[0-9]+*'
+      - 'healthchecks/v[0-9]+.[0-9]+.[0-9]+*'
+      - 'instrumentation/v[0-9]+.[0-9]+.[0-9]+*'
 
 permissions:
   contents: read
@@ -15,14 +17,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          fetch-depth: 1
+          fetch-depth: 0
+          filter: tree:0
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
-      - name: Generate package
+      - name: Resolve project from tag
+        id: resolve
         run: |
-          TAG_NAME=${GITHUB_REF#refs/tags/}
-          dotnet pack -c Release -o out -p:PackageVersion=$TAG_NAME
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          PREFIX="${TAG_NAME%%/v*}"
+          case "$PREFIX" in
+            globalexceptionhandler)
+              PROJECT="src/JuntosSomosMais.Utils.GlobalExceptionHandler/JuntosSomosMais.Utils.GlobalExceptionHandler.csproj"
+              ;;
+            healthchecks)
+              PROJECT="src/JuntosSomosMais.Utils.HealthChecks/JuntosSomosMais.Utils.HealthChecks.csproj"
+              ;;
+            instrumentation)
+              PROJECT="src/JuntosSomosMais.Utils.Instrumentation/JuntosSomosMais.Utils.Instrumentation.csproj"
+              ;;
+            *)
+              echo "::error::Unknown package prefix '$PREFIX' in tag '$TAG_NAME'"
+              exit 1
+              ;;
+          esac
+          echo "project=$PROJECT" >> "$GITHUB_OUTPUT"
+      - name: Generate package
+        run: dotnet pack -c Release -o out "${{ steps.resolve.outputs.project }}"
       - name: Push package
         run: |
           dotnet nuget push out/*.nupkg \

@@ -4,6 +4,7 @@
     <Description>Validation instrumentation for ASP.NET Core APIs and Ziggurat message pipelines.</Description>
     <PackageId>JuntosSomosMais.Utils.Instrumentation</PackageId>
     <PackageTags>validation instrumentation aspnetcore ziggurat middleware filter</PackageTags>
+    <MinVerTagPrefix>instrumentation/v</MinVerTagPrefix>
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

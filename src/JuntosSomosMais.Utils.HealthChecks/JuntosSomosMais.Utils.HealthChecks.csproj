@@ -4,6 +4,7 @@
     <Description>Reusable health checks for SQL Server, Redis, RabbitMQ, Hangfire, Azure Blob Storage, Azure Service Bus, MongoDB, Elasticsearch, and a standardized JSON response writer.</Description>
     <PackageId>JuntosSomosMais.Utils.HealthChecks</PackageId>
     <PackageTags>healthcheck aspnetcore sqlserver redis rabbitmq hangfire azureblobstorage azureservicebus mongodb elasticsearch</PackageTags>
+    <MinVerTagPrefix>healthchecks/v</MinVerTagPrefix>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="JuntosSomosMais.Utils.HealthChecks.Tests" />

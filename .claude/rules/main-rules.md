@@ -32,6 +32,12 @@
 
 - Use "Async" suffix in names of methods that return an awaitable type
 
+## Releasing
+
+- Each package is versioned independently via MinVer; the git tag *is* the version. **Never** edit `<Version>`, `<VersionPrefix>`, or `<PackageVersion>` in any `.csproj`.
+- Tag format is `<prefix>v<semver>` (e.g. `healthchecks/v0.2.0`). Each package owns a unique `<MinVerTagPrefix>`.
+- Full release process, tag-prefix table, and steps for adding a new package: see [`./RELEASING_LIBRARIES.md`](../../RELEASING_LIBRARIES.md).
+
 ## Forbidden patterns
 
 - **Prohibition of the Repository Pattern** — Do not implement the Repository pattern in Entity Framework projects. To reduce complexity and prevent antipatterns, use DbContext directly across the codebase to simplify data access and improve maintainability.

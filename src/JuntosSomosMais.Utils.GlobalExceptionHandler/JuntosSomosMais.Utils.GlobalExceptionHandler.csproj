@@ -4,6 +4,7 @@
     <Description>ASP.NET Core 8+ IExceptionHandler-based global exception handler providing structured JSON responses.</Description>
     <PackageId>JuntosSomosMais.Utils.GlobalExceptionHandler</PackageId>
     <PackageTags>exception handler aspnetcore global</PackageTags>
+    <MinVerTagPrefix>globalexceptionhandler/v</MinVerTagPrefix>
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
