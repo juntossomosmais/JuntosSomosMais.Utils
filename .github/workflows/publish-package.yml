@@ -6,6 +6,7 @@ on:
       - 'globalexceptionhandler/v[0-9]+.[0-9]+.[0-9]+*'
       - 'healthchecks/v[0-9]+.[0-9]+.[0-9]+*'
       - 'instrumentation/v[0-9]+.[0-9]+.[0-9]+*'
+      - 'cnpj/v[0-9]+.[0-9]+.[0-9]+*'
 
 permissions:
   contents: read
@@ -43,6 +44,9 @@ jobs:
               ;;
             instrumentation)
               PROJECT="src/JuntosSomosMais.Utils.Instrumentation/JuntosSomosMais.Utils.Instrumentation.csproj"
+              ;;
+            cnpj)
+              PROJECT="src/JuntosSomosMais.Utils.Cnpj/JuntosSomosMais.Utils.Cnpj.csproj"
               ;;
             *)
               echo "::error::Unknown package prefix '$PREFIX' in tag '$TAG_NAME'"

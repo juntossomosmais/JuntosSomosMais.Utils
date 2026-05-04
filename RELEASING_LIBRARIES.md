@@ -7,6 +7,7 @@ Each package is versioned independently. The git tag is the version — MinVer r
 | `JuntosSomosMais.Utils.GlobalExceptionHandler` | `globalexceptionhandler/v` |
 | `JuntosSomosMais.Utils.HealthChecks` | `healthchecks/v` |
 | `JuntosSomosMais.Utils.Instrumentation` | `instrumentation/v` |
+| `JuntosSomosMais.Utils.Cnpj` | `cnpj/v` |
 
 ## Release
 
