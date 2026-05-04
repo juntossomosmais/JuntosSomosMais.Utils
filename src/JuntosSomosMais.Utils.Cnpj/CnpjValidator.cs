@@ -15,27 +15,17 @@ public static partial class CnpjValidator
         if (string.IsNullOrWhiteSpace(cnpj) || !IsValidFormat(cnpj))
             return false;
 
-        Span<char> buf = stackalloc char[cnpj.Length];
-        var n = 0;
-        foreach (var c in cnpj)
-            if (char.IsAsciiLetterOrDigit(c))
-                buf[n++] = char.ToUpperInvariant(c);
+        var stripped = cnpj.StripCnpjMask()!;
 
-        var stripped = buf[..n];
-
-        var allZeros = true;
-        foreach (var c in stripped)
-            if (c != '0')
-            { allZeros = false; break; }
-        if (allZeros)
+        if (stripped.All(c => c == '0'))
             return false;
 
-        var firstDigit = CalculateDigit(_multi1, stripped[..12]);
+        var firstDigit = CalculateDigit(_multi1, stripped.AsSpan()[..12]);
 
         if (stripped[12] - '0' != firstDigit)
             return false;
 
-        var secondDigit = CalculateDigit(_multi2, stripped[..13]);
+        var secondDigit = CalculateDigit(_multi2, stripped.AsSpan()[..13]);
         return stripped[13] - '0' == secondDigit;
     }
 
