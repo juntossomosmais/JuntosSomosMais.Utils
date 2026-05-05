@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>JuntosSomosMais.Utils.Cnpj</RootNamespace>
+    <Description>CNPJ validator supporting both the classic numeric format and the new alphanumeric format introduced in July 2026.</Description>
+    <PackageId>JuntosSomosMais.Utils.Cnpj</PackageId>
+    <PackageTags>cnpj validation brazil alphanumeric</PackageTags>
+    <MinVerTagPrefix>cnpj/v</MinVerTagPrefix>
+  </PropertyGroup>
+</Project>
