@@ -6,7 +6,4 @@
     <PackageTags>cnpj validation brazil alphanumeric</PackageTags>
     <MinVerTagPrefix>cnpj/v</MinVerTagPrefix>
   </PropertyGroup>
-  <ItemGroup>
-    <InternalsVisibleTo Include="JuntosSomosMais.Utils.Cnpj.Tests" />
-  </ItemGroup>
 </Project>

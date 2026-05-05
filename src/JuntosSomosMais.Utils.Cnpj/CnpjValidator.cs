@@ -12,7 +12,7 @@ public static partial class CnpjValidator
 
     public static bool Validate(string? cnpj)
     {
-        if (string.IsNullOrWhiteSpace(cnpj) || !IsValidFormat(cnpj))
+        if (!IsValidFormat(cnpj))
             return false;
 
         var stripped = cnpj.StripCnpjMask()!;
@@ -33,6 +33,7 @@ public static partial class CnpjValidator
     {
         var sum = 0;
         for (var i = 0; i < weights.Length; i++)
+            // For alphanumeric CNPJs, letters map to A=17, B=18...Z=42 via ASCII arithmetic (ord(c)-ord('0')), matching the Receita Federal spec.
             sum += weights[i] * (digits[i] - '0');
 
         var remainder = sum % 11;
