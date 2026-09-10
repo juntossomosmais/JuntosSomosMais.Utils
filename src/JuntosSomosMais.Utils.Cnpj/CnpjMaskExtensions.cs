@@ -13,4 +13,28 @@ public static class CnpjMaskExtensions
                 buf[n++] = char.ToUpperInvariant(c);
         return new string(buf[..n]);
     }
+
+    public static string? NormalizeCnpj(this string? cnpj)
+    {
+        if (cnpj == null)
+            return null;
+
+        var cleaned = cnpj.StripCnpjMask()!;
+
+        if (cleaned.Length == 0 || cleaned.Length >= 14)
+            return cleaned;
+
+        var isAllDigits = true;
+        foreach (var c in cleaned)
+            if (!char.IsAsciiDigit(c))
+            {
+                isAllDigits = false;
+                break;
+            }
+
+        if (!isAllDigits)
+            return cleaned;
+
+        return cleaned.PadLeft(14, '0');
+    }
 }
