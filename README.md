@@ -648,6 +648,7 @@ Validates Brazilian CNPJs in both the classic all-numeric format and the new alp
 | `CnpjValidator.Validate(cnpj)` | Validates format and check digits. Accepts masked/unmasked and upper/lowercase input. |
 | `CnpjValidator.IsValidFormat(cnpj)` | Validates only the structural format via regex, without computing check digits. |
 | `cnpj.StripCnpjMask()` | Removes mask characters (`.`, `/`, `-`) and converts to uppercase. |
+| `cnpj.NormalizeCnpj()` | Returns the canonical 14-character form: strips the mask, uppercases, and restores leading zeros lost in spreadsheet exports. |
 
 ### Quick start
 
@@ -688,6 +689,33 @@ CnpjValidator.IsValidFormat(null);                  // false
 "L2.0T2.TJN/0001-18".StripCnpjMask(); // "L20T2TJN000118"
 "l20t2tjn000118".StripCnpjMask();     // "L20T2TJN000118"
 ```
+
+### Normalizing to the canonical form
+
+Spreadsheet and CSV exports strip leading zeros from numeric-looking columns, so a real CNPJ like `07000001000185` arrives as `7000001000185` and fails the format check outright -- not as "wrong check digits", but as malformed. `NormalizeCnpj()` restores the canonical 14-character form: it strips the mask, uppercases, and left-pads with zeros when the cleaned value is non-empty, all-numeric, and shorter than 14 characters.
+
+```csharp
+"7000001000185".NormalizeCnpj();      // "07000001000185" — one lost zero restored
+"123456000149".NormalizeCnpj();       // "00123456000149" — two lost zeros restored
+"7.000.001/0001-85".NormalizeCnpj();  // "07000001000185" — mask stripped, then padded
+"11.222.333/0001-81".NormalizeCnpj(); // "11222333000181" — already 14, unchanged
+"l20t2tjn000118".NormalizeCnpj();     // "L20T2TJN000118" — uppercased, never padded
+"L20T2TJN0001".NormalizeCnpj();       // "L20T2TJN0001"   — alphanumeric, never padded
+"112223330001810".NormalizeCnpj();    // "112223330001810" — never truncated
+"".NormalizeCnpj();                   // ""  — never "00000000000000"
+"   ".NormalizeCnpj();                // ""  — whitespace-only never pads
+
+string? missing = null;
+missing.NormalizeCnpj();              // null — propagated, never throws
+```
+
+Alphanumeric values are never padded. A lost leading zero is recoverable by construction; a lost leading letter is not, so the library refuses to guess and lets validation reject the value instead.
+
+> **Important:** Normalizing is not validating. `NormalizeCnpj()` only reshapes the string -- you must still call `CnpjValidator.Validate()` on the result, which is what judges whether the reconstructed value is a real CNPJ.
+
+> **Important:** A `true` from `Validate` after padding does not prove the value is the company you meant. Every valid 12-digit body pads into exactly one valid 14-character CNPJ, and CNPJs beginning with `0` are real and assignable -- roughly 1% of arbitrary 13-digit inputs pad into a value that passes both check digits. A value that lost a leading *letter* is likewise indistinguishable from one that lost a leading zero and will be padded as numeric. If you are matching records, cross-check against a stored value rather than treating normalize-then-validate as authoritative.
+
+> **Important:** The strip step keeps only ASCII letters and digits. Non-ASCII digits (such as Arabic-Indic numerals) and accented letters are silently dropped, which shortens the value and can cause an unintended pad.
 
 ### Usage in a service
 
