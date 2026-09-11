@@ -222,4 +222,36 @@ public class CnpjValidatorTests
         // Assert
         Assert.False(result);
     }
+
+    [Fact(DisplayName = "Should validate a zero-padded CNPJ while Validate itself stays unpadded")]
+    public void Validate_NormalizedCnpjWithLostLeadingZero_ReturnsTrueWhileRawInputStaysFalse()
+    {
+        // Arrange
+        var cnpj = "7000001000185";
+
+        // Act
+        var normalizedResult = CnpjValidator.Validate(cnpj.NormalizeCnpj());
+        var rawResult = CnpjValidator.Validate(cnpj);
+
+        // Assert - the pad recovers a validatable CNPJ, and Validate itself did not start padding
+        Assert.True(normalizedResult);
+        Assert.False(rawResult);
+    }
+
+    [Fact(DisplayName = "Should widen acceptance for loosely-spaced input via NormalizeCnpj while Validate alone keeps rejecting it")]
+    public void Validate_NormalizedLooselySpacedCnpj_ReturnsTrueWhileRawInputStaysFalse()
+    {
+        // Arrange
+        var cnpj = "11 222 333 0001 81";
+
+        // Act
+        var normalized = cnpj.NormalizeCnpj();
+        var normalizedResult = CnpjValidator.Validate(normalized);
+        var rawResult = CnpjValidator.Validate(cnpj);
+
+        // Assert - this is a deliberate behavior delta: NormalizeCnpj recovers the value, Validate alone must not
+        Assert.Equal("11222333000181", normalized);
+        Assert.True(normalizedResult);
+        Assert.False(rawResult);
+    }
 }
