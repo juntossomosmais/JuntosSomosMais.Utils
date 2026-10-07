@@ -10,6 +10,8 @@ Opinionated configurations and utilities for .NET projects at Juntos Somos Mais.
 | [JuntosSomosMais.Utils.HealthChecks](https://www.nuget.org/packages/JuntosSomosMais.Utils.HealthChecks/) | Reusable health checks for SQL Server, Redis, RabbitMQ, Hangfire, Azure Blob Storage, Azure Service Bus, MongoDB, Elasticsearch, and a standardized JSON response writer. |
 | [JuntosSomosMais.Utils.Instrumentation](https://www.nuget.org/packages/JuntosSomosMais.Utils.Instrumentation/) | FluentValidation instrumentation for ASP.NET Core APIs and Ziggurat message pipelines. |
 | [JuntosSomosMais.Utils.Cnpj](https://www.nuget.org/packages/JuntosSomosMais.Utils.Cnpj/) | CNPJ validator supporting both the classic numeric format and the new alphanumeric format introduced in July 2026. |
+| [JuntosSomosMais.Utils.SimpleHistory](https://www.nuget.org/packages/JuntosSomosMais.Utils.SimpleHistory/) | Provider-neutral core of SimpleHistory, a django-simple-history analogue for .NET: options, tracked-source builder, hosted service, health check and purge command. |
+| [JuntosSomosMais.Utils.SimpleHistory.MongoDb](https://www.nuget.org/packages/JuntosSomosMais.Utils.SimpleHistory.MongoDb/) | MongoDB provider of SimpleHistory: change stream based history rows for MongoDB collections. |
 
 Install via CLI:
 
@@ -18,6 +20,7 @@ dotnet add package JuntosSomosMais.Utils.GlobalExceptionHandler
 dotnet add package JuntosSomosMais.Utils.HealthChecks
 dotnet add package JuntosSomosMais.Utils.Instrumentation
 dotnet add package JuntosSomosMais.Utils.Cnpj
+dotnet add package JuntosSomosMais.Utils.SimpleHistory.MongoDb
 ```
 
 ## JuntosSomosMais.Utils.HealthChecks
@@ -751,3 +754,10 @@ public class CriarEmpresaRequestValidator : AbstractValidator<CriarEmpresaReques
     }
 }
 ```
+
+## JuntosSomosMais.Utils.SimpleHistory
+
+Keeps a history of every change to tracked database records, like [django-simple-history](https://django-simple-history.readthedocs.io/). The core package is provider-neutral; `JuntosSomosMais.Utils.SimpleHistory.MongoDb` (which brings the core) implements it with MongoDB change streams.
+
+- Core concepts, row shape, health check and purge: [src/JuntosSomosMais.Utils.SimpleHistory/README.md](src/JuntosSomosMais.Utils.SimpleHistory/README.md)
+- MongoDB setup, registration, replay and operational notes: [src/JuntosSomosMais.Utils.SimpleHistory.MongoDb/README.md](src/JuntosSomosMais.Utils.SimpleHistory.MongoDb/README.md)
