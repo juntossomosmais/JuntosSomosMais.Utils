@@ -1,0 +1,132 @@
+using JuntosSomosMais.Utils.SimpleHistory.MongoDb;
+using MongoDB.Bson;
+using MongoDB.Driver;
+
+namespace JuntosSomosMais.Utils.SimpleHistory.MongoDb.Tests;
+
+public class MongoHistoryCheckpointStoreTests : MongoTestBase
+{
+    private readonly MongoHistoryCheckpointStore _sut;
+
+    public MongoHistoryCheckpointStoreTests()
+    {
+        _sut = new MongoHistoryCheckpointStore(Database, "simpleHistoryCheckpoint", "myOrders");
+    }
+
+    private IMongoCollection<BsonDocument> Checkpoints => Database.GetCollection<BsonDocument>("simpleHistoryCheckpoint");
+
+    [Fact]
+    public async Task ResumeToken_ShouldRoundTrip()
+    {
+        var token = new BsonDocument("_data", "826A00");
+
+        await _sut.SaveResumeTokenAsync(token, CancellationToken.None);
+
+        Assert.Equal(token, await _sut.GetResumeTokenAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetResumeTokenAsync_WhenNothingSaved_ShouldReturnNull()
+    {
+        Assert.Null(await _sut.GetResumeTokenAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveResumeTokenAsync_WhenNoDocument_ShouldCreateIt()
+    {
+        Assert.Equal(0, await Checkpoints.CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty));
+
+        await _sut.SaveResumeTokenAsync(new BsonDocument("_data", "AAA"), CancellationToken.None);
+
+        var document = Assert.Single(await Checkpoints.Find(FilterDefinition<BsonDocument>.Empty).ToListAsync());
+        Assert.Equal("myOrders", document["_id"].AsString);
+        Assert.Equal(new BsonDocument("_data", "AAA"), document["ResumeToken"].AsBsonDocument);
+    }
+
+    [Fact]
+    public async Task SaveResumeTokenAsync_WhenCalledTwice_ShouldOverwriteWithoutDuplicatingTheDocument()
+    {
+        await _sut.SaveResumeTokenAsync(new BsonDocument("_data", "AAA"), CancellationToken.None);
+
+        await _sut.SaveResumeTokenAsync(new BsonDocument("_data", "BBB"), CancellationToken.None);
+
+        Assert.Equal(1, await Checkpoints.CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty));
+        Assert.Equal(new BsonDocument("_data", "BBB"), await _sut.GetResumeTokenAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ClearResumeTokenAsync_WhenTheStoredTokenIsTheExpectedOne_ShouldRemoveItAndKeepTheDocument()
+    {
+        await _sut.SaveResumeTokenAsync(new BsonDocument("_data", "AAA"), CancellationToken.None);
+
+        await _sut.ClearResumeTokenAsync(new BsonDocument("_data", "AAA"), CancellationToken.None);
+
+        Assert.Null(await _sut.GetResumeTokenAsync(CancellationToken.None));
+        Assert.Equal(1, await Checkpoints.CountDocumentsAsync(new BsonDocument("_id", "myOrders")));
+    }
+
+    [Fact]
+    public async Task ClearResumeTokenAsync_WhenADifferentTokenIsStored_ShouldKeepIt()
+    {
+        // A stale consumer (expects AAA) must not wipe the newer position another one saved.
+        await _sut.SaveResumeTokenAsync(new BsonDocument("_data", "BBB"), CancellationToken.None);
+
+        await _sut.ClearResumeTokenAsync(new BsonDocument("_data", "AAA"), CancellationToken.None);
+
+        Assert.Equal(new BsonDocument("_data", "BBB"), await _sut.GetResumeTokenAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ClearResumeTokenAsync_WhenExpectedTokenIsNull_ShouldKeepAStoredToken()
+    {
+        await _sut.SaveResumeTokenAsync(new BsonDocument("_data", "BBB"), CancellationToken.None);
+
+        await _sut.ClearResumeTokenAsync(null, CancellationToken.None);
+
+        Assert.Equal(new BsonDocument("_data", "BBB"), await _sut.GetResumeTokenAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ClearResumeTokenAsync_WhenNoDocument_ShouldNotCreateOne()
+    {
+        await _sut.ClearResumeTokenAsync(new BsonDocument("_data", "AAA"), CancellationToken.None);
+
+        Assert.Equal(0, await Checkpoints.CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty));
+    }
+
+    [Fact]
+    public async Task TwoStoresWithDifferentCheckpointIds_ShouldBeIndependent()
+    {
+        var other = new MongoHistoryCheckpointStore(Database, "simpleHistoryCheckpoint", "carts");
+
+        await _sut.SaveResumeTokenAsync(new BsonDocument("_data", "ORDERS"), CancellationToken.None);
+        await other.SaveResumeTokenAsync(new BsonDocument("_data", "CARTS"), CancellationToken.None);
+
+        Assert.Equal(new BsonDocument("_data", "ORDERS"), await _sut.GetResumeTokenAsync(CancellationToken.None));
+        Assert.Equal(new BsonDocument("_data", "CARTS"), await other.GetResumeTokenAsync(CancellationToken.None));
+        Assert.Equal(2, await Checkpoints.CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty));
+    }
+
+    [Fact]
+    public async Task ClearingOneSource_ShouldKeepTheOthersToken()
+    {
+        var other = new MongoHistoryCheckpointStore(Database, "simpleHistoryCheckpoint", "carts");
+        await _sut.SaveResumeTokenAsync(new BsonDocument("_data", "A"), CancellationToken.None);
+        await other.SaveResumeTokenAsync(new BsonDocument("_data", "B"), CancellationToken.None);
+
+        await _sut.ClearResumeTokenAsync(new BsonDocument("_data", "A"), CancellationToken.None);
+
+        Assert.Null(await _sut.GetResumeTokenAsync(CancellationToken.None));
+        Assert.NotNull(await other.GetResumeTokenAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CustomCollectionName_ShouldBeUsed()
+    {
+        var custom = new MongoHistoryCheckpointStore(Database, "my_checkpoints", "x");
+
+        await custom.SaveResumeTokenAsync(new BsonDocument("_data", "A"), CancellationToken.None);
+
+        Assert.Equal(1, await Database.GetCollection<BsonDocument>("my_checkpoints").CountDocumentsAsync(new BsonDocument("_id", "x")));
+    }
+}

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>JuntosSomosMais.Utils.SimpleHistory.MongoDb</RootNamespace>
+    <Description>MongoDB provider of SimpleHistory: change stream based history for MongoDB collections (a django-simple-history analogue), delta rows per tracked collection, each with its own history collection.</Description>
+    <PackageId>JuntosSomosMais.Utils.SimpleHistory.MongoDb</PackageId>
+    <PackageTags>history audit changetracking changestreams mongodb django-simple-history</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <MinVerTagPrefix>simplehistory/v</MinVerTagPrefix>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="JuntosSomosMais.Utils.SimpleHistory.MongoDb.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="MongoDB.Driver" Version="2.29.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\JuntosSomosMais.Utils.SimpleHistory\JuntosSomosMais.Utils.SimpleHistory.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

@@ -23,6 +23,14 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.Cnpj"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.Cnpj.Tests", "tests\JuntosSomosMais.Utils.Cnpj.Tests\JuntosSomosMais.Utils.Cnpj.Tests.csproj", "{B6C1D4E8-F2A5-4B9C-8D6E-1F3A7B5C9D2E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.SimpleHistory", "src\JuntosSomosMais.Utils.SimpleHistory\JuntosSomosMais.Utils.SimpleHistory.csproj", "{EADF985B-8E75-485E-BF26-D526ADB8B5D0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.SimpleHistory.MongoDb", "src\JuntosSomosMais.Utils.SimpleHistory.MongoDb\JuntosSomosMais.Utils.SimpleHistory.MongoDb.csproj", "{5E079CD3-7C30-4B21-B31E-F35D7B427CE6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.SimpleHistory.Tests", "tests\JuntosSomosMais.Utils.SimpleHistory.Tests\JuntosSomosMais.Utils.SimpleHistory.Tests.csproj", "{FC6E7434-C77A-4100-9F73-DD253AAD6DFA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.SimpleHistory.MongoDb.Tests", "tests\JuntosSomosMais.Utils.SimpleHistory.MongoDb.Tests\JuntosSomosMais.Utils.SimpleHistory.MongoDb.Tests.csproj", "{0699906A-2A38-4C20-9E5E-D2B170C131AB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -64,6 +72,22 @@ Global
 		{B6C1D4E8-F2A5-4B9C-8D6E-1F3A7B5C9D2E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B6C1D4E8-F2A5-4B9C-8D6E-1F3A7B5C9D2E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B6C1D4E8-F2A5-4B9C-8D6E-1F3A7B5C9D2E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EADF985B-8E75-485E-BF26-D526ADB8B5D0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EADF985B-8E75-485E-BF26-D526ADB8B5D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EADF985B-8E75-485E-BF26-D526ADB8B5D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EADF985B-8E75-485E-BF26-D526ADB8B5D0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5E079CD3-7C30-4B21-B31E-F35D7B427CE6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E079CD3-7C30-4B21-B31E-F35D7B427CE6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E079CD3-7C30-4B21-B31E-F35D7B427CE6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E079CD3-7C30-4B21-B31E-F35D7B427CE6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FC6E7434-C77A-4100-9F73-DD253AAD6DFA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FC6E7434-C77A-4100-9F73-DD253AAD6DFA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FC6E7434-C77A-4100-9F73-DD253AAD6DFA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FC6E7434-C77A-4100-9F73-DD253AAD6DFA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0699906A-2A38-4C20-9E5E-D2B170C131AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0699906A-2A38-4C20-9E5E-D2B170C131AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0699906A-2A38-4C20-9E5E-D2B170C131AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0699906A-2A38-4C20-9E5E-D2B170C131AB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{9ACA7FDE-FED8-4338-AE87-58570D2F83BD} = {1ED936F9-0D06-4A85-B506-D260BA77E0FB}
@@ -74,5 +98,9 @@ Global
 		{DA988CB9-A9F7-417E-8781-4E82A2CD3CF3} = {4F7F46B7-3CAE-4AE2-A31D-0E3157E5D2B5}
 		{A3B7C2D5-E9F1-4A6B-8C3D-7E0F2A9B4C6D} = {1ED936F9-0D06-4A85-B506-D260BA77E0FB}
 		{B6C1D4E8-F2A5-4B9C-8D6E-1F3A7B5C9D2E} = {4F7F46B7-3CAE-4AE2-A31D-0E3157E5D2B5}
+		{EADF985B-8E75-485E-BF26-D526ADB8B5D0} = {1ED936F9-0D06-4A85-B506-D260BA77E0FB}
+		{5E079CD3-7C30-4B21-B31E-F35D7B427CE6} = {1ED936F9-0D06-4A85-B506-D260BA77E0FB}
+		{FC6E7434-C77A-4100-9F73-DD253AAD6DFA} = {4F7F46B7-3CAE-4AE2-A31D-0E3157E5D2B5}
+		{0699906A-2A38-4C20-9E5E-D2B170C131AB} = {4F7F46B7-3CAE-4AE2-A31D-0E3157E5D2B5}
 	EndGlobalSection
 EndGlobal
