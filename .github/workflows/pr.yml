@@ -28,6 +28,12 @@ jobs:
       - name: Check if the project is well formatted
         run: |
           ./scripts/start-check-formatting.sh
+      - name: Start MongoDB replica set (SimpleHistory.MongoDb integration tests)
+        run: |
+          docker run -d --name mongo -p 27017:27017 mongo:8.0 --replSet rs0 --bind_ip_all
+          until docker exec mongo mongosh --quiet --eval "db.runCommand({ ping: 1 })" > /dev/null 2>&1; do sleep 1; done
+          docker exec mongo mongosh --quiet --eval "rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] })"
+          until docker exec mongo mongosh --quiet --eval "quit(db.hello().isWritablePrimary ? 0 : 1)"; do sleep 1; done
       - name: Build the project, run all tests, and publish the test results
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
