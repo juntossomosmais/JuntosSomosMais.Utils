@@ -61,7 +61,7 @@ public class HistoryHealthCheckTests
             result.Description);
         Assert.DoesNotContain("carts", result.Description);
         Assert.DoesNotContain("mongo-0.internal", result.Description);
-        Assert.Equal(new[] { "carts", "myOrders" }, result.Data.Keys.OrderBy(k => k, StringComparer.Ordinal));
+        Assert.Equal<string>(["carts", "myOrders"], result.Data.Keys.OrderBy(k => k, StringComparer.Ordinal));
         Assert.Equal("0:00:30 since the last checkpoint", result.Data["carts"]);
     }
 

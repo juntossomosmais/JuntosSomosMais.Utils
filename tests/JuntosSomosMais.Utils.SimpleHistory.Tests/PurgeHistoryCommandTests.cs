@@ -42,7 +42,7 @@ public class PurgeHistoryCommandTests
         var exitCode = await RunAsync(Args(to: To));
 
         Assert.Equal(0, exitCode);
-        Assert.Equal(new[] { "myOrders", "carts" }, _received!.Select(s => s.SourceName));
+        Assert.Equal<string>(["myOrders", "carts"], _received!.Select(s => s.SourceName));
     }
 
     [Theory]
@@ -60,7 +60,7 @@ public class PurgeHistoryCommandTests
     [Fact]
     public async Task RunAsync_WithDuplicateSelections_ShouldCollapseThem()
     {
-        await RunAsync(Args(new[] { "carts", "cartsAudit", "CARTS" }, to: To));
+        await RunAsync(Args(["carts", "cartsAudit", "CARTS"], to: To));
 
         Assert.Single(_received!);
     }
@@ -68,7 +68,7 @@ public class PurgeHistoryCommandTests
     [Fact]
     public async Task RunAsync_WithUnknownCollection_ShouldThrowListingValidNamesAndNeverCallThePurger()
     {
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() => RunAsync(Args(new[] { "carts", "nope" }, to: To)));
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() => RunAsync(Args(["carts", "nope"], to: To)));
 
         Assert.Contains("nope", ex.Message);
         Assert.Contains("myOrders", ex.Message);
@@ -94,13 +94,12 @@ public class PurgeHistoryCommandTests
         await RunAsync(Args(to: To, dryRun: true));
 
         var lines = _output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
-        Assert.Equal(
-            new[]
-            {
+        Assert.Equal<string>(
+            [
                 "myOrdersHistory: 10 rows older than 2025-10-05T16:50:00Z would be deleted (dry run)",
                 "cartsAudit: 20 rows older than 2025-10-05T16:50:00Z would be deleted (dry run)",
                 "Total: 30",
-            },
+            ],
             lines);
     }
 
@@ -110,24 +109,23 @@ public class PurgeHistoryCommandTests
         await RunAsync(Args(to: To));
 
         var lines = _output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
-        Assert.Equal(
-            new[]
-            {
+        Assert.Equal<string>(
+            [
                 "myOrdersHistory: deleted 10 rows older than 2025-10-05T16:50:00Z",
                 "cartsAudit: deleted 20 rows older than 2025-10-05T16:50:00Z",
                 "Total: 30",
-            },
+            ],
             lines);
     }
 
     [Fact]
     public async Task RunAsync_ShouldDescribeTheIntervalAccordingToItsBounds()
     {
-        await RunAsync(Args(new[] { "carts" }, from: From));
+        await RunAsync(Args(["carts"], from: From));
         Assert.Contains("deleted 10 rows from 2025-01-01T00:00:00Z", _output.ToString());
 
         _output.GetStringBuilder().Clear();
-        await RunAsync(Args(new[] { "carts" }, from: From, to: To));
+        await RunAsync(Args(["carts"], from: From, to: To));
         Assert.Contains("deleted 10 rows from 2025-01-01T00:00:00Z to 2025-10-05T16:50:00Z", _output.ToString());
     }
 
@@ -139,7 +137,7 @@ public class PurgeHistoryCommandTests
             .Setup(p => p.PurgeAsync(It.IsAny<IEnumerable<HistoryOptions>>(), It.IsAny<HistoryPurgeRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[] { new HistoryPurgeResult("cartsAudit", 4, 4, false, pinned) });
 
-        await RunAsync(Args(new[] { "carts" }, from: From));
+        await RunAsync(Args(["carts"], from: From));
 
         Assert.Contains("cartsAudit: deleted 4 rows from 2025-01-01T00:00:00Z to 2026-10-06T12:00:00Z", _output.ToString());
     }
@@ -148,7 +146,7 @@ public class PurgeHistoryCommandTests
     public async Task ExecuteAsync_WithValidArguments_ShouldCreateThePurgerAndRunIt()
     {
         var exitCode = await PurgeHistoryCommand.ExecuteAsync(
-            new[] { "--collections=carts", "--to=2025-10-05T16:50:00Z" }, Sources, () => _purger.Object, _output);
+            ["--collections=carts", "--to=2025-10-05T16:50:00Z"], Sources, () => _purger.Object, _output);
 
         Assert.Equal(0, exitCode);
         Assert.Equal("cartsAudit", Assert.Single(_received!).HistoryName);

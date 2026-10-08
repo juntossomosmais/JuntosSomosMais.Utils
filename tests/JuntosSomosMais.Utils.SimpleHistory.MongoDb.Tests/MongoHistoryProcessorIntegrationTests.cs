@@ -372,14 +372,14 @@ public class MongoHistoryProcessorIntegrationTests : MongoTestBase
             () => history.Find(FilterDefinition<HistoryEntry>.Empty).SortBy(h => h.HistoryDate).ThenBy(h => h.ChangeToken).ToListAsync(),
             r => r.Count >= 3);
 
-        Assert.Equal(new[] { "+", "~", "~" }, rows.Select(r => r.HistoryType));
+        Assert.Equal<string>(["+", "~", "~"], rows.Select(r => r.HistoryType));
         Assert.Null(rows[0].ChangedFields);
-        Assert.Equal(new[] { "StatusOrder" }, rows[1].ChangedFields);
+        Assert.Equal<string>(["StatusOrder"], rows[1].ChangedFields);
         Assert.Equal("PAID", rows[1].Data["StatusOrder"].AsString);
         Assert.True(rows[1].Data.Contains("SalesOrder")); // the whole document, not only the changed field
         Assert.True(rows[1].Data.Contains("CreationDate")); // ignored fields are still stored, they just never count as a change
         Assert.Empty(rows[2].ChangedFields!);
-        Assert.Equal(new[] { "Total" }, rows[2].RemovedFields);
+        Assert.Equal<string>(["Total"], rows[2].RemovedFields);
         Assert.False(rows[2].Data.Contains("Total"));
         var current = await source.Find(new BsonDocument("_id", id)).FirstAsync();
         current.Remove("_id");
@@ -398,7 +398,7 @@ public class MongoHistoryProcessorIntegrationTests : MongoTestBase
         Assert.Equal(3, rows.Select(r => r.ChangeToken).Distinct().Count());
     }
 
-    private Task SetPreAndPostImagesAsync(bool enabled) =>
+    private Task<BsonDocument> SetPreAndPostImagesAsync(bool enabled) =>
         Database.RunCommandAsync<BsonDocument>(new BsonDocument
         {
             { "collMod", "orders" },

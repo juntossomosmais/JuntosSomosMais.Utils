@@ -117,7 +117,7 @@ public class MongoHistoryProcessorTests
         await CreateSut().RunAsync(CancellationToken.None);
 
         var batch = Assert.Single(_insertedBatches);
-        Assert.Equal(new[] { "t1", "t2", "t3" }, batch.Select(r => r.ChangeToken));
+        Assert.Equal<string>(["t1", "t2", "t3"], batch.Select(r => r.ChangeToken));
         Assert.All(batch, r => Assert.Equal("+", r.HistoryType));
         _checkpoints.Verify(c => c.SaveResumeTokenAsync(new BsonDocument("_data", "after-batch"), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -215,7 +215,7 @@ public class MongoHistoryProcessorTests
         var row = Assert.Single(Assert.Single(_insertedBatches));
         Assert.Equal("~", row.HistoryType);
         Assert.Equal(new BsonDocument { { "Items", new BsonArray { 1 } }, { "StatusOrder", "PAID" } }, row.Data);
-        Assert.Equal(new[] { "Gone" }, row.RemovedFields);
+        Assert.Equal<string>(["Gone"], row.RemovedFields);
         Assert.Equal(new BsonObjectId(id), row.EntityId);
     }
 
@@ -244,7 +244,7 @@ public class MongoHistoryProcessorTests
 
         _source.Verify(o => o.FindAsync(It.IsAny<FilterDefinition<BsonDocument>>(), It.IsAny<FindOptions<BsonDocument, BsonDocument>>(), It.IsAny<CancellationToken>()), Times.Once);
         var batch = Assert.Single(_insertedBatches);
-        Assert.Equal(new[] { "u1", "u2" }, batch.Select(r => r.ChangeToken)); // u3: document no longer exists, nothing to record
+        Assert.Equal<string>(["u1", "u2"], batch.Select(r => r.ChangeToken)); // u3: document no longer exists, nothing to record
         Assert.All(batch, r => Assert.Equal(new BsonDocument("Products", new BsonArray { new BsonDocument("Status", "OK") }), r.Data));
     }
 
@@ -385,11 +385,11 @@ public class MongoHistoryProcessorTests
         _checkpoints.Verify(c => c.ClearResumeTokenAsync(It.IsAny<BsonDocument?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    public static IEnumerable<object[]> EntityIds() => new[]
+    public static TheoryData<BsonValue, BsonValue> EntityIds() => new()
     {
-        new object[] { new BsonString("order-1"), new BsonString("order-2") },
-        new object[] { new BsonBinaryData(Guid.NewGuid(), GuidRepresentation.Standard), new BsonBinaryData(Guid.NewGuid(), GuidRepresentation.Standard) },
-        new object[] { new BsonInt32(7), new BsonInt32(8) },
+        { new BsonString("order-1"), new BsonString("order-2") },
+        { new BsonBinaryData(Guid.NewGuid(), GuidRepresentation.Standard), new BsonBinaryData(Guid.NewGuid(), GuidRepresentation.Standard) },
+        { new BsonInt32(7), new BsonInt32(8) },
     };
 
     [Theory]

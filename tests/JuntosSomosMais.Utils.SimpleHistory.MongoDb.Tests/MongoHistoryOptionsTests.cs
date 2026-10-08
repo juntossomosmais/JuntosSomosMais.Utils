@@ -36,7 +36,7 @@ public class MongoHistoryOptionsTests
         returned.StoreFullDocument = true; // compiles only because the chain keeps the Mongo type
 
         Assert.Same(sut, returned);
-        Assert.Equal(new[] { "StatusOrder", "Total" }, sut.TrackedFields.OrderBy(n => n));
+        Assert.Equal<string>(["StatusOrder", "Total"], sut.TrackedFields.OrderBy(n => n));
         Assert.True(sut.StoreFullDocument);
     }
 

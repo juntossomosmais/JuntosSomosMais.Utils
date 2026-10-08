@@ -22,8 +22,8 @@ public class HistoryBuilderTests
             .Track("orders", o => { o.IgnoreFields("CreationDate"); o.BatchSize = 5; })
             .Track("carts"));
 
-        Assert.Equal(new[] { "orders", "carts" }, sources.Select(o => o.SourceName));
-        Assert.Equal(new[] { "ordersHistory", "cartsHistory" }, sources.Select(o => o.HistoryName));
+        Assert.Equal<string>(["orders", "carts"], sources.Select(o => o.SourceName));
+        Assert.Equal<string>(["ordersHistory", "cartsHistory"], sources.Select(o => o.HistoryName));
         Assert.Contains("CreationDate", sources[0].IgnoredFields);
         Assert.Empty(sources[1].IgnoredFields);
         Assert.Equal(5, sources[0].BatchSize);

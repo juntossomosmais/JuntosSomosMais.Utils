@@ -18,7 +18,7 @@ public class PurgeHistoryArgsTests
     [Fact]
     public void Parse_WithOlderThanDays_ShouldSetToUtcToNowMinusThoseDays()
     {
-        var result = PurgeHistoryArgs.Parse(new[] { "--older-than-days=30" }, Now);
+        var result = PurgeHistoryArgs.Parse(["--older-than-days=30"], Now);
 
         Assert.Equal(Now.AddDays(-30), result.ToUtc);
         Assert.Null(result.FromUtc);
@@ -27,7 +27,7 @@ public class PurgeHistoryArgsTests
     [Fact]
     public void Parse_WithFromAndTo_ShouldParseAsUtcAndDateOnlyMeansMidnightUtc()
     {
-        var result = PurgeHistoryArgs.Parse(new[] { "--from=2025-01-01", "--to=2025-03-01T10:30:00Z" }, Now);
+        var result = PurgeHistoryArgs.Parse(["--from=2025-01-01", "--to=2025-03-01T10:30:00Z"], Now);
 
         Assert.Equal(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc), result.FromUtc);
         Assert.Equal(DateTimeKind.Utc, result.FromUtc!.Value.Kind);
@@ -38,7 +38,7 @@ public class PurgeHistoryArgsTests
     [Fact]
     public void Parse_WithOffsetDate_ShouldConvertToUtc()
     {
-        var result = PurgeHistoryArgs.Parse(new[] { "--to=2025-03-01T10:30:00-03:00" }, Now);
+        var result = PurgeHistoryArgs.Parse(["--to=2025-03-01T10:30:00-03:00"], Now);
 
         Assert.Equal(new DateTime(2025, 3, 1, 13, 30, 0, DateTimeKind.Utc), result.ToUtc);
     }
@@ -46,7 +46,7 @@ public class PurgeHistoryArgsTests
     [Fact]
     public void Parse_WithFromOnly_ShouldLeaveToOpenAndNotApplyTheDefault()
     {
-        var result = PurgeHistoryArgs.Parse(new[] { "--from=2025-01-01" }, Now);
+        var result = PurgeHistoryArgs.Parse(["--from=2025-01-01"], Now);
 
         Assert.Equal(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc), result.FromUtc);
         Assert.Null(result.ToUtc);
@@ -55,7 +55,7 @@ public class PurgeHistoryArgsTests
     [Fact]
     public void Parse_WithToOnly_ShouldLeaveFromOpen()
     {
-        var result = PurgeHistoryArgs.Parse(new[] { "--to=2025-01-01" }, Now);
+        var result = PurgeHistoryArgs.Parse(["--to=2025-01-01"], Now);
 
         Assert.Null(result.FromUtc);
         Assert.Equal(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc), result.ToUtc);
@@ -64,25 +64,25 @@ public class PurgeHistoryArgsTests
     [Fact]
     public void Parse_WithCollections_ShouldSplitAndTrim()
     {
-        var result = PurgeHistoryArgs.Parse(new[] { "--collections=myOrdersHistory, carts" }, Now);
+        var result = PurgeHistoryArgs.Parse(["--collections=myOrdersHistory, carts"], Now);
 
-        Assert.Equal(new[] { "myOrdersHistory", "carts" }, result.Collections);
+        Assert.Equal<string>(["myOrdersHistory", "carts"], result.Collections);
     }
 
     [Fact]
     public void Parse_WithDryRun_ShouldSetTheFlag()
     {
-        Assert.True(PurgeHistoryArgs.Parse(new[] { "--dry-run" }, Now).DryRun);
+        Assert.True(PurgeHistoryArgs.Parse(["--dry-run"], Now).DryRun);
     }
 
     [Fact]
     public void Parse_ShouldMatchArgumentNamesCaseInsensitively()
     {
-        var result = PurgeHistoryArgs.Parse(new[] { "--DRY-RUN", "--Older-Than-Days=10", "--COLLECTIONS=a" }, Now);
+        var result = PurgeHistoryArgs.Parse(["--DRY-RUN", "--Older-Than-Days=10", "--COLLECTIONS=a"], Now);
 
         Assert.True(result.DryRun);
         Assert.Equal(Now.AddDays(-10), result.ToUtc);
-        Assert.Equal(new[] { "a" }, result.Collections);
+        Assert.Equal<string>(["a"], result.Collections);
     }
 
     [Theory]

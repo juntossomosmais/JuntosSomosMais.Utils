@@ -29,8 +29,8 @@ public class MongoHistoryRegistrationTests
         Assert.All(hosted, h => Assert.IsType<HistoryHostedService>(h));
         Assert.NotSame(hosted[0], hosted[1]);
         var sources = provider.GetRequiredService<HistorySources>();
-        Assert.Equal(new[] { "orders", "carts" }, sources.Options.Select(o => o.SourceName));
-        Assert.Equal(new[] { "ordersHistory", "cartsHistory" }, sources.Options.Select(o => o.HistoryName));
+        Assert.Equal<string>(["orders", "carts"], sources.Options.Select(o => o.SourceName));
+        Assert.Equal<string>(["ordersHistory", "cartsHistory"], sources.Options.Select(o => o.HistoryName));
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public class MongoHistoryRegistrationTests
         var registry = provider.GetRequiredService<HistoryHealthRegistry>();
 
         Assert.Same(registry, provider.GetRequiredService<HistoryHealthRegistry>());
-        Assert.Equal(new[] { "orders", "carts" }, registry.Sources.Select(s => s.Options.SourceName));
+        Assert.Equal<string>(["orders", "carts"], registry.Sources.Select(s => s.Options.SourceName));
         Assert.NotSame(registry.Sources[0].State, registry.Sources[1].State);
         // The registry holds the very options the hosted services use.
         Assert.Same(provider.GetRequiredService<HistorySources>().Options[0], registry.Sources[0].Options);
@@ -85,7 +85,7 @@ public class MongoHistoryRegistrationTests
         var result = await registration.Factory(provider).CheckHealthAsync(new HealthCheckContext { Registration = registration });
 
         Assert.Equal(HealthStatus.Healthy, result.Status);
-        Assert.Equal(new[] { "orders" }, result.Data.Keys);
+        Assert.Equal<string>(["orders"], result.Data.Keys);
     }
 
     [Fact]
@@ -130,8 +130,8 @@ public class MongoHistoryRegistrationTests
 
         Assert.Same(builder, returned);
         var sources = returned.Build(); // typed IReadOnlyList<MongoHistoryOptions> only through the Mongo builder
-        Assert.Equal(new[] { "orders", "carts" }, sources.Select(o => o.SourceName));
-        Assert.Equal(new[] { true, false }, sources.Select(o => o.CompressHistory));
+        Assert.Equal<string>(["orders", "carts"], sources.Select(o => o.SourceName));
+        Assert.Equal<bool>([true, false], sources.Select(o => o.CompressHistory));
     }
 
     [Fact]

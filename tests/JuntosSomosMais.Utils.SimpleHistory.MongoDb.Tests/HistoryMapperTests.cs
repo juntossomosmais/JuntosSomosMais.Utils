@@ -72,7 +72,7 @@ public class HistoryMapperTests
 
         Assert.NotNull(row);
         Assert.Equal(new BsonDocument { { "New", "x" } }, row!.Data);
-        Assert.Equal(new[] { "B", "Z" }, row.RemovedFields);
+        Assert.Equal<string>(["B", "Z"], row.RemovedFields);
     }
 
     [Fact]
@@ -136,12 +136,12 @@ public class HistoryMapperTests
             null,
             after,
             updatedFields: new BsonDocument(),
-            removed: new[] { "Gone.Child", "Back" },
-            truncatedArrays: new[] { "Items" }));
+            removed: ["Gone.Child", "Back"],
+            truncatedArrays: ["Items"]));
 
         Assert.NotNull(row);
         Assert.Equal(new BsonDocument { { "Items", new BsonArray { 1 } } }, row!.Data);
-        Assert.Equal(new[] { "Gone" }, row.RemovedFields);
+        Assert.Equal<string>(["Gone"], row.RemovedFields);
     }
 
     [Fact]
@@ -268,8 +268,8 @@ public class HistoryMapperTests
 
         Assert.Equal("~", row!.HistoryType);
         Assert.Equal(new BsonDocument { { "Total", 20 }, { "StatusOrder", "PAID" }, { "CreationDate", 2 } }, row.Data);
-        Assert.Equal(new[] { "StatusOrder", "Total" }, row.ChangedFields);
-        Assert.Equal(new[] { "Gone" }, row.RemovedFields);
+        Assert.Equal<string>(["StatusOrder", "Total"], row.ChangedFields);
+        Assert.Equal<string>(["Gone"], row.RemovedFields);
     }
 
     [Fact]
@@ -291,13 +291,13 @@ public class HistoryMapperTests
             null,
             after,
             updatedFields: new BsonDocument("StatusOrder", "PAID"),
-            removed: new[] { "Gone" },
-            truncatedArrays: new[] { "Items" }));
+            removed: ["Gone"],
+            truncatedArrays: ["Items"]));
 
         Assert.Equal("~", row!.HistoryType);
         Assert.Equal(new BsonDocument { { "StatusOrder", "PAID" }, { "Total", 10 }, { "Items", new BsonArray { 1 } } }, row.Data);
-        Assert.Equal(new[] { "Items", "StatusOrder" }, row.ChangedFields);
-        Assert.Equal(new[] { "Gone" }, row.RemovedFields);
+        Assert.Equal<string>(["Items", "StatusOrder"], row.ChangedFields);
+        Assert.Equal<string>(["Gone"], row.RemovedFields);
     }
 
     [Fact]
@@ -305,11 +305,11 @@ public class HistoryMapperTests
     {
         var after = new BsonDocument { { "_id", EntityId }, { "StatusOrder", "PAID" } };
 
-        var row = FullMapper.Map(Event(ChangeStreamOperationType.Update, null, after, new BsonDocument(), removed: new[] { "Gone" }));
+        var row = FullMapper.Map(Event(ChangeStreamOperationType.Update, null, after, new BsonDocument(), removed: ["Gone"]));
 
         Assert.NotNull(row!.ChangedFields);
         Assert.Empty(row.ChangedFields);
-        Assert.Equal(new[] { "Gone" }, row.RemovedFields);
+        Assert.Equal<string>(["Gone"], row.RemovedFields);
         Assert.Equal(new BsonDocument("StatusOrder", "PAID"), row.Data);
     }
 
@@ -357,7 +357,7 @@ public class HistoryMapperTests
         var after = new BsonDocument { { "StatusOrder", "NEW" }, { "Notes", "b" } };
 
         Assert.Null(tracked.Map(Event(ChangeStreamOperationType.Replace, before, after)));
-        Assert.Null(tracked.Map(Event(ChangeStreamOperationType.Update, null, after, new BsonDocument("Notes", "b"), removed: new[] { "Old" })));
+        Assert.Null(tracked.Map(Event(ChangeStreamOperationType.Update, null, after, new BsonDocument("Notes", "b"), removed: ["Old"])));
     }
 
     [Fact]
@@ -373,16 +373,16 @@ public class HistoryMapperTests
         var onlyIgnored = mapper.Map(Event(ChangeStreamOperationType.Replace, after, new BsonDocument { { "StatusOrder", "PAID" }, { "Total", 10 }, { "UpdatedAt", 3 } }));
 
         Assert.Equal(new BsonDocument { { "StatusOrder", "PAID" }, { "Total", 10 }, { "UpdatedAt", 2 } }, row!.Data);
-        Assert.Equal(new[] { "StatusOrder" }, row.ChangedFields);
+        Assert.Equal<string>(["StatusOrder"], row.ChangedFields);
         Assert.Null(onlyIgnored);
     }
 
-    public static IEnumerable<object[]> EntityIds() => new[]
+    public static TheoryData<BsonValue> EntityIds() => new()
     {
-        new object[] { new BsonString("cart-1") },
-        new object[] { new BsonBinaryData(Guid.NewGuid(), GuidRepresentation.Standard) },
-        new object[] { new BsonInt32(42) },
-        new object[] { new BsonObjectId(ObjectId.GenerateNewId()) },
+        new BsonString("cart-1"),
+        new BsonBinaryData(Guid.NewGuid(), GuidRepresentation.Standard),
+        new BsonInt32(42),
+        new BsonObjectId(ObjectId.GenerateNewId()),
     };
 
     [Theory]

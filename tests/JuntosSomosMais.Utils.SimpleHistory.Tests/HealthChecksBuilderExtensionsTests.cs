@@ -29,12 +29,12 @@ public class HealthChecksBuilderExtensionsTests
     [Fact]
     public void AddSimpleHistoryHealthCheck_WithCustomValues_ShouldUseThem()
     {
-        var (provider, registration) = Register(b => b.AddSimpleHistoryHealthCheck("history", HealthStatus.Degraded, new[] { "be", "history" }));
+        var (provider, registration) = Register(b => b.AddSimpleHistoryHealthCheck("history", HealthStatus.Degraded, ["be", "history"]));
         using var _ = provider;
 
         Assert.Equal("history", registration.Name);
         Assert.Equal(HealthStatus.Degraded, registration.FailureStatus);
-        Assert.Equal(new[] { "be", "history" }, registration.Tags.OrderBy(t => t, StringComparer.Ordinal));
+        Assert.Equal<string>(["be", "history"], registration.Tags.OrderBy(t => t, StringComparer.Ordinal));
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class HealthChecksBuilderExtensionsTests
         var result = await check.CheckHealthAsync(new HealthCheckContext { Registration = registration });
 
         Assert.Equal(HealthStatus.Healthy, result.Status);
-        Assert.Equal(new[] { "myOrders" }, result.Data.Keys); // the registry registered above
+        Assert.Equal<string>(["myOrders"], result.Data.Keys); // the registry registered above
     }
 
     [Fact]

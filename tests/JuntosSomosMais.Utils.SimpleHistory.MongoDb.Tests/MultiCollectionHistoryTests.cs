@@ -80,7 +80,7 @@ public class MultiCollectionHistoryTests : MongoTestBase
             Assert.All(cartRows, r => Assert.Equal(new BsonString("cart-1"), r.EntityId));
 
             // orders ignores CreationDate in deltas, carts keeps it.
-            Assert.Equal(new[] { "+", "~", "~" }, orderRows.Select(r => r.HistoryType));
+            Assert.Equal<string>(["+", "~", "~"], orderRows.Select(r => r.HistoryType));
             Assert.DoesNotContain(orderRows.Skip(1), r => r.Data.Contains("CreationDate"));
             Assert.Equal(2, cartRows[1].Data.ElementCount);
             Assert.Equal(2, cartRows[1].Data["CreationDate"].AsInt32);
@@ -99,9 +99,9 @@ public class MultiCollectionHistoryTests : MongoTestBase
 
             // One shared checkpoint collection, one document per source.
             using var names = await Database.ListCollectionNamesAsync(new ListCollectionNamesOptions { Filter = new BsonDocument("name", new BsonRegularExpression("heckpoint")) });
-            Assert.Equal(new[] { "simpleHistoryCheckpoint" }, await names.ToListAsync());
+            Assert.Equal<string>(["simpleHistoryCheckpoint"], await names.ToListAsync());
             var ids = (await checkpoints.Find(FilterDefinition<BsonDocument>.Empty).ToListAsync()).Select(d => d["_id"].AsString).OrderBy(i => i);
-            Assert.Equal(new[] { "carts", "orders" }, ids);
+            Assert.Equal<string>(["carts", "orders"], ids);
         }
         finally
         {

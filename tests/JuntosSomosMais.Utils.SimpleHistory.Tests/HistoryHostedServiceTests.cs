@@ -95,7 +95,7 @@ public class HistoryHostedServiceTests
         await WaitUntilAsync(() => calls.Contains("run"));
         await sut.StopAsync(CancellationToken.None);
 
-        Assert.Equal(new[] { "setup", "run" }, calls.Take(2));
+        Assert.Equal<string>(["setup", "run"], calls.Take(2));
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public class HistoryHostedServiceTests
         await sut.StartAsync(cts.Token);
         await sut.ExecuteTask!.WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.Equal(new[] { "setup", "run", "setup", "run", "setup", "run" }, calls);
+        Assert.Equal<string>(["setup", "run", "setup", "run", "setup", "run"], calls);
     }
 
     [Fact]
@@ -184,7 +184,7 @@ public class HistoryHostedServiceTests
         await WaitUntilAsync(() => Count(calls, "run") >= 2);
         await sut.StopAsync(CancellationToken.None);
 
-        Assert.Equal(new[] { "setup", "run", "setup", "run" }, calls.Take(4));
+        Assert.Equal<string>(["setup", "run", "setup", "run"], calls.Take(4));
     }
 
     [Fact]
@@ -205,7 +205,7 @@ public class HistoryHostedServiceTests
         await sut.StartAsync(cts.Token);
         await sut.ExecuteTask!.WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.Equal(new[] { 10, 20, 10, 10 }, delays.Select(d => (int)d.TotalMilliseconds));
+        Assert.Equal<int>([10, 20, 10, 10], delays.Select(d => (int)d.TotalMilliseconds));
     }
 
     [Fact]
@@ -224,7 +224,7 @@ public class HistoryHostedServiceTests
         await sut.StartAsync(cts.Token);
         await sut.ExecuteTask!.WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.Equal(new[] { 10, 20, 25, 25 }, delays.Select(d => (int)d.TotalMilliseconds));
+        Assert.Equal<int>([10, 20, 25, 25], delays.Select(d => (int)d.TotalMilliseconds));
     }
 
     [Fact]
