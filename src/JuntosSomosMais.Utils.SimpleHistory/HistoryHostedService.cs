@@ -76,7 +76,8 @@ public class HistoryHostedService : BackgroundService
             catch (Exception ex)
             {
                 _state.MarkFailure(ex);
-                _logger.LogError(ex, $"{_options.SourceName} history stream failed, retrying in {backoff.TotalSeconds:0.##}s");
+                _logger.LogError(
+                    ex, "{SourceName} history stream failed, retrying in {RetryDelaySeconds:0.##}s", _options.SourceName, backoff.TotalSeconds);
                 try
                 {
                     await _delay(backoff, stoppingToken);

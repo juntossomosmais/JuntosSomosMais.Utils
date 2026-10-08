@@ -107,7 +107,7 @@ public class MongoHistoryProcessor : IHistoryProcessor
         }
         catch (MongoCommandException ex) when (ex.Code == ChangeStreamHistoryLostCode)
         {
-            _logger.LogError(ex, $"{_options.SourceName} history gap: resume token no longer in the oplog, restarting from now");
+            _logger.LogError(ex, "{SourceName} history gap: resume token no longer in the oplog, restarting from now", _options.SourceName);
             await _checkpoints.ClearResumeTokenAsync(ownToken, cancellationToken);
         }
     }
@@ -128,7 +128,9 @@ public class MongoHistoryProcessor : IHistoryProcessor
             Builders<BsonDocument>.Filter.In("_id", missingIds), cancellationToken: cancellationToken);
         var current = (await cursor.ToListAsync(cancellationToken)).ToDictionary(d => d["_id"]);
 
-        _logger.LogInformation($"Loaded {current.Count} of {missingIds.Count} {_options.SourceName} documents without post-image for the history");
+        _logger.LogInformation(
+            "Loaded {LoadedCount} of {MissingCount} {SourceName} documents without post-image for the history",
+            current.Count, missingIds.Count, _options.SourceName);
 
         return events
             .Select(e => e.Operation == ChangeStreamOperationType.Update && e.After is null && current.TryGetValue(e.EntityId, out var document)
@@ -167,7 +169,8 @@ public class MongoHistoryProcessor : IHistoryProcessor
         catch (MongoBulkWriteException<HistoryEntry> ex)
             when (ex.WriteErrors.Count > 0 && ex.WriteErrors.All(e => e.Category == ServerErrorCategory.DuplicateKey))
         {
-            _logger.LogInformation(ex, $"Skipped {ex.WriteErrors.Count} already-recorded {_options.SourceName} history rows");
+            _logger.LogInformation(
+                ex, "Skipped {SkippedCount} already-recorded {SourceName} history rows", ex.WriteErrors.Count, _options.SourceName);
         }
     }
 }

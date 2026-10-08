@@ -48,6 +48,10 @@ public class HistoryHostedServiceTests
             It.Is<Exception?>(e => e != null && e.Message == message),
             It.IsAny<Func<It.IsAnyType, Exception?, string>>()), times);
 
+    private static bool HasLogValue(object state, string key, object expected) =>
+        state is IReadOnlyList<KeyValuePair<string, object?>> values
+        && values.Any(v => v.Key == key && Equals(v.Value, expected));
+
     private void VerifyNoErrorLogged() =>
         _logger.Verify(l => l.Log(
             LogLevel.Error, It.IsAny<EventId>(), It.IsAny<It.IsAnyType>(),
@@ -149,6 +153,25 @@ public class HistoryHostedServiceTests
         await sut.StopAsync(CancellationToken.None);
 
         VerifyErrorLoggedWithException("boom", Times.Once());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenProcessorThrows_ShouldLogTheSourceAndTheRetryDelayAsStructuredValues()
+    {
+        var calls = RecordCalls(run => run == 1 ? Task.FromException(new InvalidOperationException("boom")) : Task.CompletedTask);
+        var sut = CreateSut();
+
+        await sut.StartAsync(CancellationToken.None);
+        await WaitUntilAsync(() => Count(calls, "run") >= 2);
+        await sut.StopAsync(CancellationToken.None);
+
+        _logger.Verify(l => l.Log(
+            LogLevel.Error, It.IsAny<EventId>(),
+            It.Is<It.IsAnyType>((state, _) =>
+                state.ToString() == "myOrders history stream failed, retrying in 0.01s"
+                && HasLogValue(state, "SourceName", "myOrders")
+                && HasLogValue(state, "RetryDelaySeconds", FastBackoff.TotalSeconds)),
+            It.IsAny<Exception?>(), It.IsAny<Func<It.IsAnyType, Exception?, string>>()), Times.Once());
     }
 
     [Fact]

@@ -66,6 +66,10 @@ public class MongoHistoryProcessorTests
         return new ChangeStreamDocument<BsonDocument>(backing, BsonSerializer.LookupSerializer<BsonDocument>());
     }
 
+    private static bool HasLogValue(object state, string key, object expected) =>
+        state is IReadOnlyList<KeyValuePair<string, object?>> values
+        && values.Any(v => v.Key == key && Equals(v.Value, expected));
+
     private static MongoBulkWriteException<HistoryEntry> BulkException(params (ServerErrorCategory Category, int Code)[] errors)
     {
         var ctor = typeof(BulkWriteError).GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public).Single();
@@ -259,7 +263,10 @@ public class MongoHistoryProcessorTests
         _checkpoints.Verify(c => c.SaveResumeTokenAsync(It.IsAny<BsonDocument>(), It.IsAny<CancellationToken>()), Times.Once);
         _logger.Verify(l => l.Log(
             LogLevel.Information, It.IsAny<EventId>(),
-            It.Is<It.IsAnyType>((state, _) => state.ToString()!.Contains("Skipped 2 already-recorded myOrders history rows")),
+            It.Is<It.IsAnyType>((state, _) =>
+                state.ToString() == "Skipped 2 already-recorded myOrders history rows"
+                && HasLogValue(state, "SkippedCount", 2)
+                && HasLogValue(state, "SourceName", "myOrders")),
             It.Is<Exception?>(e => e is MongoBulkWriteException<HistoryEntry>),
             It.IsAny<Func<It.IsAnyType, Exception?, string>>()), Times.Once);
     }
