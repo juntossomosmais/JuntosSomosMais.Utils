@@ -240,6 +240,27 @@ public class MongoHistoryProcessorIntegrationTests : MongoTestBase
     }
 
     [Fact]
+    public async Task Redelivery_OfABatchWithDuplicatesBeforeANewRow_ShouldStillInsertTheNewRow()
+    {
+        var firstToken = (await _checkpoints.GetResumeTokenAsync(CancellationToken.None))!;
+        var first = Start();
+        await Orders.InsertOneAsync(NewOrder(ObjectId.GenerateNewId()));
+        await Orders.InsertOneAsync(NewOrder(ObjectId.GenerateNewId()));
+        await Orders.InsertOneAsync(NewOrder(ObjectId.GenerateNewId()));
+        var recorded = await WaitForRowsAsync(3);
+        await StopAsync(first);
+
+        // The last row goes missing, then the three events are delivered again in one batch: [dup, dup, new]. An
+        // ordered insert would stop at the first duplicate and lose the new row.
+        await History.DeleteOneAsync(h => h.ChangeToken == recorded[2].ChangeToken);
+        await _checkpoints.SaveResumeTokenAsync(firstToken, CancellationToken.None);
+        Start();
+
+        var rows = await WaitForRowsAsync(3);
+        Assert.Equal(recorded.Select(r => r.ChangeToken), rows.Select(r => r.ChangeToken));
+    }
+
+    [Fact]
     public async Task MissingPreImage_ShouldFallBackToSnapshotAndUpdateDescription()
     {
         var id = ObjectId.GenerateNewId();
