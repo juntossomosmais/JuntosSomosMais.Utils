@@ -88,6 +88,13 @@ public class HistoryOptions
     /// <summary>Throws <see cref="InvalidOperationException"/> when the options are inconsistent.</summary>
     public virtual void Validate()
     {
+        ValidateNames();
+        ValidateTimings();
+        ValidateFields();
+    }
+
+    private void ValidateNames()
+    {
         if (string.IsNullOrWhiteSpace(HistoryName))
             throw new InvalidOperationException($"{SourceName}: the history name is required.");
         if (HistoryName == SourceName)
@@ -96,6 +103,10 @@ public class HistoryOptions
             throw new InvalidOperationException($"{SourceName}: the checkpoint name is required.");
         if (CheckpointName == SourceName || CheckpointName == HistoryName)
             throw new InvalidOperationException($"{SourceName}: the checkpoint name must differ from the source and history names.");
+    }
+
+    private void ValidateTimings()
+    {
         if (BatchSize <= 0)
             throw new InvalidOperationException($"{SourceName}: BatchSize must be positive.");
         if (InitialBackoff <= TimeSpan.Zero)
@@ -108,6 +119,10 @@ public class HistoryOptions
             throw new InvalidOperationException($"{SourceName}: UnhealthyAfter must be longer than MaxBackoff.");
         if (GapReportedFor <= TimeSpan.Zero)
             throw new InvalidOperationException($"{SourceName}: GapReportedFor must be positive.");
+    }
+
+    private void ValidateFields()
+    {
         var nested = TrackedFields.Concat(IgnoredFields).FirstOrDefault(n => n.Contains('.') || n.StartsWith('$'));
         if (nested is not null)
             throw new InvalidOperationException($"{SourceName}: {nested} is not a top-level field name.");

@@ -52,8 +52,34 @@ internal sealed class HistoryMapper
     {
         var changed = new SortedDictionary<string, BsonValue>(StringComparer.Ordinal);
         var removed = new SortedSet<string>(StringComparer.Ordinal);
-        var nested = new HashSet<string>(StringComparer.Ordinal);
+        var nested = CollectExactChanges(change, changed, removed);
 
+        var after = change.After;
+        if (after is not null)
+            ResolveNestedAgainst(after, nested, changed, removed);
+
+        if (changed.Count == 0 && removed.Count == 0)
+            return null;
+
+        var delta = new BsonDocument(changed.Select(c => new BsonElement(c.Key, c.Value)));
+        if (!_storeFullDocument || after is null)
+            return NewRow(change, HistoryTypes.Changed, delta, removed.ToList());
+
+        // The whole document at event time, as far as it is known: After with the exact top-level values on top.
+        var data = Filter(after);
+        foreach (var element in delta)
+            data[element.Name] = element.Value;
+        foreach (var name in removed)
+            data.Remove(name);
+        return NewRow(change, HistoryTypes.Changed, data, removed.ToList(), changed.Keys.ToList());
+    }
+
+    // Records the top-level sets and removals of the update description and returns the top-level fields that only
+    // changed through a nested path or a truncated array.
+    private HashSet<string> CollectExactChanges(
+        ChangeEvent change, SortedDictionary<string, BsonValue> changed, SortedSet<string> removed)
+    {
+        var nested = new HashSet<string>(StringComparer.Ordinal);
         foreach (var element in change.UpdatedFields ?? new BsonDocument())
         {
             if (IsNested(element.Name))
@@ -72,30 +98,19 @@ internal sealed class HistoryMapper
 
         foreach (var name in change.TruncatedArrayFieldNames ?? Array.Empty<string>())
             nested.Add(TopLevel(name));
+        return nested;
+    }
 
-        var after = change.After;
-        foreach (var name in nested.Where(n => after is not null && CountsAsChange(n) && !changed.ContainsKey(n)))
+    private void ResolveNestedAgainst(
+        BsonDocument after, HashSet<string> nested, SortedDictionary<string, BsonValue> changed, SortedSet<string> removed)
+    {
+        foreach (var name in nested.Where(n => CountsAsChange(n) && !changed.ContainsKey(n)))
         {
-            if (after!.TryGetValue(name, out var value))
+            if (after.TryGetValue(name, out var value))
                 changed[name] = value;
             else
                 removed.Add(name);
         }
-
-        if (changed.Count == 0 && removed.Count == 0)
-            return null;
-
-        var delta = new BsonDocument(changed.Select(c => new BsonElement(c.Key, c.Value)));
-        if (!_storeFullDocument || after is null)
-            return NewRow(change, HistoryTypes.Changed, delta, removed.ToList());
-
-        // The whole document at event time, as far as it is known: After with the exact top-level values on top.
-        var data = Filter(after);
-        foreach (var element in delta)
-            data[element.Name] = element.Value;
-        foreach (var name in removed)
-            data.Remove(name);
-        return NewRow(change, HistoryTypes.Changed, data, removed.ToList(), changed.Keys.ToList());
     }
 
     /// <summary>Changed fields (new values) and removed fields between two versions, honouring the options.</summary>
