@@ -18,6 +18,10 @@ The change stream consumer itself (processor, mapper, checkpoint store) is inter
 
 - .NET 6 or newer: the packages target `net6.0` and `net8.0` (on .NET 6, `TimeProvider` comes from
   `Microsoft.Bcl.TimeProvider`).
+- MongoDB.Driver **2.x** (2.29.0 or newer, below 3.0). The package is compiled against the 2.x line, where
+  `MongoDB.Driver.Core` is a separate assembly; 3.0 merged it into `MongoDB.Driver`, so on a 3.x consumer this build
+  would fail at runtime when loading those types. The dependency is declared as `[2.29.0, 3.0.0)`, so NuGet warns
+  (NU1608) when a service on 3.x installs it. Support for 3.x will come as a separate release.
 - MongoDB 6.0 or newer, as a **replica set or sharded cluster** (change streams do not exist on a standalone) with
   WiredTiger.
 - Privileges of the user that runs it: `changeStream` and `find` on the tracked collection; read/write and
