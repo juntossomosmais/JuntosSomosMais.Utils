@@ -11,6 +11,7 @@ public sealed class HistoryHealthState
     private DateTime? _lastCheckpointUtc;
     private string? _lastError;
     private DateTime? _lastErrorUtc;
+    private HistoryGap? _lastGap;
 
     /// <param name="timeProvider">
     /// Clock used for <see cref="StartedAtUtc"/> and every mark; defaults to the system clock. Give
@@ -59,11 +60,21 @@ public sealed class HistoryHealthState
         }
     }
 
-    /// <summary>The checkpoint and failure fields read together under one lock, so they describe the same moment.</summary>
+    /// <summary>The last window whose changes were not recorded, or null when there was none.</summary>
+    public HistoryGap? LastGap
+    {
+        get
+        {
+            lock (_gate)
+                return _lastGap;
+        }
+    }
+
+    /// <summary>The checkpoint, failure and gap fields read together under one lock, so they describe the same moment.</summary>
     public HistoryHealthSnapshot Snapshot()
     {
         lock (_gate)
-            return new HistoryHealthSnapshot(_lastCheckpointUtc, _lastError, _lastErrorUtc);
+            return new HistoryHealthSnapshot(_lastCheckpointUtc, _lastError, _lastErrorUtc, _lastGap);
     }
 
     /// <summary>Records a checkpoint saved now.</summary>
@@ -72,6 +83,22 @@ public sealed class HistoryHealthState
         var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
         lock (_gate)
             _lastCheckpointUtc = utcNow;
+    }
+
+    /// <summary>
+    /// Records a window whose changes were not recorded. A null <paramref name="toUtc"/> means it ended now. The latest
+    /// gap wins: an older one never replaces it.
+    /// </summary>
+    /// <param name="fromUtc">When the last checkpoint before the gap was saved, or null when unknown.</param>
+    /// <param name="toUtc">When the stream restarted from now; null means now.</param>
+    public void MarkGap(DateTime? fromUtc, DateTime? toUtc)
+    {
+        var gap = new HistoryGap(fromUtc, toUtc ?? _timeProvider.GetUtcNow().UtcDateTime);
+        lock (_gate)
+        {
+            if (_lastGap is null || gap.ToUtc >= _lastGap.ToUtc)
+                _lastGap = gap;
+        }
     }
 
     /// <summary>Records a failure of the loop that happened now (only the exception type name is kept).</summary>

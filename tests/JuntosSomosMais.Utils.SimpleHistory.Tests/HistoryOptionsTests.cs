@@ -18,6 +18,7 @@ public class HistoryOptionsTests
         Assert.Equal(TimeSpan.FromSeconds(5), sut.InitialBackoff);
         Assert.Equal(TimeSpan.FromSeconds(60), sut.MaxBackoff);
         Assert.Equal(TimeSpan.FromMinutes(5), sut.UnhealthyAfter);
+        Assert.Equal(TimeSpan.FromDays(1), sut.GapReportedFor);
         sut.Validate();
     }
 
@@ -144,6 +145,17 @@ public class HistoryOptionsTests
         var sut = new HistoryOptions("o") { InitialBackoff = TimeSpan.FromSeconds(seconds) };
 
         Assert.Throws<InvalidOperationException>(sut.Validate);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public void Validate_WhenGapReportedForIsNotPositive_ShouldThrow(int seconds)
+    {
+        var sut = new HistoryOptions("o") { GapReportedFor = TimeSpan.FromSeconds(seconds) };
+
+        var ex = Assert.Throws<InvalidOperationException>(sut.Validate);
+        Assert.Contains("GapReportedFor", ex.Message);
     }
 
     [Theory]

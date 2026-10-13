@@ -63,6 +63,12 @@ public class HistoryOptions
     /// </summary>
     public TimeSpan UnhealthyAfter { get; set; } = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// How long <see cref="HistoryHealthCheck"/> reports the source as degraded after a gap (a window whose changes
+    /// were not recorded), counted from the end of the gap.
+    /// </summary>
+    public TimeSpan GapReportedFor { get; set; } = TimeSpan.FromDays(1);
+
     /// <summary>Adds fields that never count as a change.</summary>
     public HistoryOptions IgnoreFields(params string[] names)
     {
@@ -100,6 +106,8 @@ public class HistoryOptions
             throw new InvalidOperationException($"{SourceName}: UnhealthyAfter must be positive.");
         if (UnhealthyAfter <= MaxBackoff)
             throw new InvalidOperationException($"{SourceName}: UnhealthyAfter must be longer than MaxBackoff.");
+        if (GapReportedFor <= TimeSpan.Zero)
+            throw new InvalidOperationException($"{SourceName}: GapReportedFor must be positive.");
         var nested = TrackedFields.Concat(IgnoredFields).FirstOrDefault(n => n.Contains('.') || n.StartsWith('$'));
         if (nested is not null)
             throw new InvalidOperationException($"{SourceName}: {nested} is not a top-level field name.");

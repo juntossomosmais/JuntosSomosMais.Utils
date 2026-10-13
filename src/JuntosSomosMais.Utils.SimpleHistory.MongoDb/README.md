@@ -167,6 +167,7 @@ fluent `IgnoreFields(...)` / `TrackFields(...)` keep the Mongo type so chaining 
 | `BatchSize` | 100 | Change stream batch size |
 | `InitialBackoff` / `MaxBackoff` | 5 s / 60 s | Retry delay of the hosted service after a failure |
 | `UnhealthyAfter` | 5 min | Time without a saved checkpoint after which the health check reports Unhealthy; must be longer than `MaxAwaitTime` and `MaxBackoff` |
+| `GapReportedFor` | 1 day | How long the health check reports Degraded after a gap, counted from its end |
 
 Invalid options, duplicate sources, a shared history collection or a history/checkpoint collection that is itself
 tracked throw `InvalidOperationException` at registration, not at runtime.
@@ -216,8 +217,8 @@ the `-` form a new chain and `Rebuild` yields the re-inserted document.
 - **Asynchronous.** A row appears milliseconds to seconds after the write and is not part of the write's transaction.
 - **No actor.** A change stream cannot know who wrote; rows record what and when.
 - **Resume token.** The consumer saves the resume token after every batch (also empty ones) in the checkpoint
-  document `{ _id: <source>, ResumeToken }`. A restarted worker resumes exactly where it stopped; redelivered events
-  are ignored thanks to the unique `ChangeToken` index.
+  document `{ _id: <source>, ResumeToken, SavedAt }`. A restarted worker resumes exactly where it stopped;
+  redelivered events are ignored thanks to the unique `ChangeToken` index.
 - **One replica.** There is no lease: run the consuming deployment with one replica and the `Recreate` strategy. An
   accidental overlap only produces duplicates that the `ChangeToken` index rejects.
 - **Health check.** `services.AddHealthChecks().AddSimpleHistoryHealthCheck()` adds one check (`simplehistory` by
@@ -230,9 +231,13 @@ the `-` form a new chain and `Rebuild` yields the re-inserted document.
   no traffic gains nothing from failing readiness: pass `tags` that its liveness endpoint also serves, so a stuck
   stream restarts the pod.
 - **Gap risk.** If the consumer is down longer than the oplog window / pre-image retention, the stream cannot resume
-  (error 286). It is logged at error level, the token is cleared (only if it is still the one this run started from
-  or last saved, so a stale consumer never wipes a newer position) and the stream restarts from now; the missed window
-  is not recoverable. This is the only case that restarts from now: when the stream closes by itself (an `invalidate`
+  (error 286). In one atomic update of the checkpoint document, the token is cleared (only if it is still the one
+  this run started from or last saved, so a stale consumer never wipes a newer position) and the missed window is
+  recorded as `LastGap: { FromUtc, ToUtc }`: from the `SavedAt` of the lost token to the server's now. The stream
+  restarts from now; the changes of that window are not in the history and must be reconciled from the source. The
+  gap is logged at error level with both bounds, and the health check reports Degraded for `GapReportedFor` (it reads
+  `LastGap` again after a restart). To acknowledge it sooner, `$unset` `LastGap` and restart the worker. This is the
+  only case that restarts from now: when the stream closes by itself (an `invalidate`
   after a drop or rename of the tracked collection) the token saved with that batch is kept and the next run resumes
   from it with `StartAfter`.
 - **Pre-image retention.** Pre-images cost storage and oplog size. Bound them with
@@ -311,5 +316,5 @@ purger themselves.
    `JuntosSomosMais.Utils.SimpleHistory`).
 2. Follow "Setting up a consumer" above: one declaration class, the setup where the privileges are, `AddMongoHistory`
    in one deployment.
-3. Set the pre-image retention cluster parameter and monitor: the `simplehistory` health check, the `history gap`
-   error log, lag between now and the newest `HistoryDate`, and `history stream failed` errors.
+3. Set the pre-image retention cluster parameter and monitor: the `simplehistory` health check (Unhealthy when a
+   stream is stuck, Degraded after a gap), the `history gap` error log, lag between now and the newest `HistoryDate`, and `history stream failed` errors.

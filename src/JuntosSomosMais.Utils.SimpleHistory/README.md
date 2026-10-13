@@ -63,6 +63,7 @@ Rules a provider follows:
 | `BatchSize` | 100 | Changes read per batch |
 | `InitialBackoff` / `MaxBackoff` | 5 s / 60 s | Retry delay of the hosted service after a failure |
 | `UnhealthyAfter` | 5 min | Time without a saved checkpoint after which `HistoryHealthCheck` reports Unhealthy; must be longer than `MaxBackoff` |
+| `GapReportedFor` | 1 day | How long `HistoryHealthCheck` reports Degraded after a gap, counted from its end |
 
 Providers derive from `HistoryOptions` to add their settings and override `Validate()`, calling the base first.
 `HistoryBuilder<TOptions>` collects the sources and rejects, at registration time: no source, a duplicate source,
@@ -97,6 +98,15 @@ carry host names; the full exception is logged):
 `Data` has one entry per source (`0:00:04 since the last checkpoint`). It needs no database round trip and no clock
 comparison between machines, and it covers a setup that keeps failing, a stream that cannot be opened and a hung
 cursor.
+
+A **gap** (the saved position fell out of the change feed, so the stream restarted from now) is recorded by the
+provider and marked on the state as a `HistoryGap` (`FromUtc`: when the lost position was saved, null when unknown;
+`ToUtc`: when the stream restarted). With no stale source, a gap that ended less than `GapReportedFor` ago makes the
+check **Degraded**, whatever the registration's failure status:
+`myOrders: changes between 2026-10-06T07:00:00.0000000Z and 2026-10-06T10:00:00.0000000Z were not recorded`.
+Degraded and not Unhealthy on purpose: the stream is running again, and failing a liveness probe would only restart
+the pod without bringing the lost changes back. Alert on Degraded (or on the `history gap` error log) and reconcile
+the window.
 
 The check is opt-in, registered by the app on its health checks builder:
 

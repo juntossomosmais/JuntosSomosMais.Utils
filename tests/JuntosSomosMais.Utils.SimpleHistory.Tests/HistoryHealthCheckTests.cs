@@ -118,4 +118,62 @@ public class HistoryHealthCheckTests
         Assert.Equal(HealthStatus.Unhealthy, result.Status);
         Assert.StartsWith("carts: no checkpoint for", result.Description);
     }
+
+    [Fact]
+    public async Task CheckHealthAsync_WhenAFreshSourceHadARecentGap_ShouldBeDegradedAndNameTheMissingWindow()
+    {
+        _ordersState.MarkGap(Start.AddHours(-3), Start);
+        _clock.Advance(TimeSpan.FromHours(2));
+        _ordersState.MarkCheckpoint();
+        _cartsState.MarkCheckpoint();
+
+        // Degraded even when the registration fails with Unhealthy: the stream runs again, a restart brings nothing back.
+        var result = await CheckAsync(TwoSources(), HealthStatus.Unhealthy);
+
+        Assert.Equal(HealthStatus.Degraded, result.Status);
+        Assert.Equal(
+            "myOrders: changes between 2026-10-06T07:00:00.0000000Z and 2026-10-06T10:00:00.0000000Z were not recorded",
+            result.Description);
+    }
+
+    [Fact]
+    public async Task CheckHealthAsync_WhenTheGapStartIsUnknown_ShouldSaySo()
+    {
+        _ordersState.MarkGap(null, Start);
+        _ordersState.MarkCheckpoint();
+        _cartsState.MarkCheckpoint();
+
+        var result = await CheckAsync(TwoSources());
+
+        Assert.Equal(HealthStatus.Degraded, result.Status);
+        Assert.StartsWith("myOrders: changes between an unknown time and", result.Description);
+    }
+
+    [Fact]
+    public async Task CheckHealthAsync_OnceTheGapIsOlderThanItsWindow_ShouldBeHealthyAgain()
+    {
+        _orders.GapReportedFor = TimeSpan.FromMinutes(1);
+        _ordersState.MarkGap(null, Start);
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        _ordersState.MarkCheckpoint();
+        _cartsState.MarkCheckpoint();
+
+        var result = await CheckAsync(TwoSources());
+
+        Assert.Equal(HealthStatus.Healthy, result.Status);
+    }
+
+    [Fact]
+    public async Task CheckHealthAsync_WhenOneSourceIsStaleAndAnotherHadAGap_ShouldReportTheFailureStatusWithBoth()
+    {
+        _cartsState.MarkGap(null, Start);
+        _clock.Advance(TimeSpan.FromMinutes(6));
+        _cartsState.MarkCheckpoint();
+
+        var result = await CheckAsync(TwoSources());
+
+        Assert.Equal(HealthStatus.Unhealthy, result.Status);
+        Assert.StartsWith("myOrders: no checkpoint for", result.Description);
+        Assert.Contains(" | carts: changes between an unknown time and", result.Description);
+    }
 }

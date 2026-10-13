@@ -321,14 +321,16 @@ public class MongoHistoryProcessorTests
         Assert.Empty(_insertedBatches);
         _checkpoints.Verify(c => c.SaveResumeTokenAsync(new BsonDocument("_data", "invalidate"), It.IsAny<CancellationToken>()), Times.Once);
         _checkpoints.Verify(c => c.SaveResumeTokenAsync(It.IsAny<BsonDocument>(), It.IsAny<CancellationToken>()), Times.Once);
-        _checkpoints.Verify(c => c.ClearResumeTokenAsync(It.IsAny<BsonDocument?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _checkpoints.Verify(c => c.RecordGapAsync(It.IsAny<BsonDocument?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public async Task RunAsync_WhenHistoryIsLost_ShouldLogGapAndClearTokenWithoutThrowing()
+    public async Task RunAsync_WhenHistoryIsLost_ShouldRecordTheGapMarkTheStateAndLogTheWindowWithoutThrowing()
     {
         var startToken = new BsonDocument("_data", "start");
+        var gap = new HistoryGap(Now.AddHours(-70), Now);
         _checkpoints.Setup(c => c.GetResumeTokenAsync(It.IsAny<CancellationToken>())).ReturnsAsync(startToken);
+        _checkpoints.Setup(c => c.RecordGapAsync(startToken, It.IsAny<CancellationToken>())).ReturnsAsync(gap);
         _source
             .Setup(o => o.WatchAsync(
                 It.IsAny<PipelineDefinition<ChangeStreamDocument<BsonDocument>, ChangeStreamDocument<BsonDocument>>>(),
@@ -339,13 +341,44 @@ public class MongoHistoryProcessorTests
         await CreateSut().RunAsync(CancellationToken.None);
 
         // Only the position this run started from may be cleared.
-        _checkpoints.Verify(c => c.ClearResumeTokenAsync(startToken, It.IsAny<CancellationToken>()), Times.Once);
-        _checkpoints.Verify(c => c.ClearResumeTokenAsync(It.IsAny<BsonDocument?>(), It.IsAny<CancellationToken>()), Times.Once);
+        _checkpoints.Verify(c => c.RecordGapAsync(startToken, It.IsAny<CancellationToken>()), Times.Once);
+        _checkpoints.Verify(c => c.RecordGapAsync(It.IsAny<BsonDocument?>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.Equal(gap, _state.LastGap);
         _logger.Verify(l => l.Log(
             LogLevel.Error, It.IsAny<EventId>(),
-            It.Is<It.IsAnyType>((state, _) => state.ToString()!.Contains("history gap")),
+            It.Is<It.IsAnyType>((state, _) => state.ToString()!.Contains("history gap")
+                && HasLogValue(state, "GapFromUtc", gap.FromUtc!) && HasLogValue(state, "GapToUtc", gap.ToUtc)),
             It.Is<Exception?>(e => e is MongoCommandException && ((MongoCommandException)e).Code == 286),
             It.IsAny<Func<It.IsAnyType, Exception?, string>>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenHistoryIsLostAndNoGapCouldBeRecorded_ShouldStillMarkAGapEndingNow()
+    {
+        // Another consumer already moved the position: the store records nothing, the health still shows the gap.
+        _checkpoints.Setup(c => c.GetResumeTokenAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new BsonDocument("_data", "start"));
+        _source
+            .Setup(o => o.WatchAsync(
+                It.IsAny<PipelineDefinition<ChangeStreamDocument<BsonDocument>, ChangeStreamDocument<BsonDocument>>>(),
+                It.IsAny<ChangeStreamOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(CommandException(286));
+
+        await CreateSut().RunAsync(CancellationToken.None);
+
+        Assert.Equal(new HistoryGap(null, Now), _state.LastGap);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenAGapWasRecordedBeforeARestart_ShouldMarkItOnTheState()
+    {
+        var gap = new HistoryGap(Now.AddHours(-5), Now.AddHours(-1));
+        _checkpoints.Setup(c => c.GetLastGapAsync(It.IsAny<CancellationToken>())).ReturnsAsync(gap);
+        SetupWatch(new FakeChangeStreamCursor());
+
+        await CreateSut().RunAsync(CancellationToken.None);
+
+        Assert.Equal(gap, _state.LastGap);
     }
 
     [Fact]
@@ -358,8 +391,8 @@ public class MongoHistoryProcessorTests
 
         await CreateSut().RunAsync(CancellationToken.None);
 
-        _checkpoints.Verify(c => c.ClearResumeTokenAsync(new BsonDocument("_data", "after-batch"), It.IsAny<CancellationToken>()), Times.Once);
-        _checkpoints.Verify(c => c.ClearResumeTokenAsync(It.IsAny<BsonDocument?>(), It.IsAny<CancellationToken>()), Times.Once);
+        _checkpoints.Verify(c => c.RecordGapAsync(new BsonDocument("_data", "after-batch"), It.IsAny<CancellationToken>()), Times.Once);
+        _checkpoints.Verify(c => c.RecordGapAsync(It.IsAny<BsonDocument?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -384,7 +417,7 @@ public class MongoHistoryProcessorTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => CreateSut().RunAsync(cts.Token));
 
-        _checkpoints.Verify(c => c.ClearResumeTokenAsync(It.IsAny<BsonDocument?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _checkpoints.Verify(c => c.RecordGapAsync(It.IsAny<BsonDocument?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     public static TheoryData<BsonValue, BsonValue> EntityIds() => new()

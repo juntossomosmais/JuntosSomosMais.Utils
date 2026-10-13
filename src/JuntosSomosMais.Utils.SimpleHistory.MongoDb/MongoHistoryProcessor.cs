@@ -60,6 +60,12 @@ public class MongoHistoryProcessor : IHistoryProcessor
         // The position this run owns: the token it started from, then each token it saves. A gap clears only that
         // position, never a newer one written by another consumer.
         var ownToken = await _checkpoints.GetResumeTokenAsync(cancellationToken);
+
+        // A gap recorded before a restart keeps being reported for its window.
+        var lastGap = await _checkpoints.GetLastGapAsync(cancellationToken);
+        if (lastGap is not null)
+            _state.MarkGap(lastGap.FromUtc, lastGap.ToUtc);
+
         var streamOptions = new ChangeStreamOptions
         {
             FullDocument = ChangeStreamFullDocumentOption.WhenAvailable,
@@ -107,8 +113,14 @@ public class MongoHistoryProcessor : IHistoryProcessor
         }
         catch (MongoCommandException ex) when (ex.Code == ChangeStreamHistoryLostCode)
         {
-            _logger.LogError(ex, "{SourceName} history gap: resume token no longer in the oplog, restarting from now", _options.SourceName);
-            await _checkpoints.ClearResumeTokenAsync(ownToken, cancellationToken);
+            var gap = await _checkpoints.RecordGapAsync(ownToken, cancellationToken);
+            _state.MarkGap(gap?.FromUtc, gap?.ToUtc);
+            _logger.LogError(
+                ex,
+                "{SourceName} history gap: resume token no longer in the oplog, restarting from now. Changes between {GapFromUtc} and {GapToUtc} were not recorded",
+                _options.SourceName,
+                gap?.FromUtc,
+                _state.LastGap?.ToUtc);
         }
     }
 

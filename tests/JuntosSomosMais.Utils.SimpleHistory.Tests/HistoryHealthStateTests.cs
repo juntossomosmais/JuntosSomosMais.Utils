@@ -13,6 +13,31 @@ public class HistoryHealthStateTests
         Assert.Null(sut.LastCheckpointUtc);
         Assert.Null(sut.LastError);
         Assert.Null(sut.LastErrorUtc);
+        Assert.Null(sut.LastGap);
+    }
+
+    [Fact]
+    public void MarkGap_WithoutAnEnd_ShouldEndItAtTheStatesClockAndShowInTheSnapshot()
+    {
+        var clock = new FakeTimeProvider(Start);
+        var sut = new HistoryHealthState(clock);
+        clock.Advance(TimeSpan.FromMinutes(3));
+
+        sut.MarkGap(Start.AddHours(-2), null);
+
+        Assert.Equal(new HistoryGap(Start.AddHours(-2), Start.AddMinutes(3)), sut.LastGap);
+        Assert.Equal(sut.LastGap, sut.Snapshot().LastGap);
+    }
+
+    [Fact]
+    public void MarkGap_WithAnOlderGap_ShouldKeepTheLatestOne()
+    {
+        var sut = new HistoryHealthState(new FakeTimeProvider(Start));
+        sut.MarkGap(null, Start.AddHours(-1));
+
+        sut.MarkGap(Start.AddHours(-5), Start.AddHours(-3));
+
+        Assert.Equal(new HistoryGap(null, Start.AddHours(-1)), sut.LastGap);
     }
 
     [Fact]

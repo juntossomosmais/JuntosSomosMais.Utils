@@ -55,43 +55,92 @@ public class MongoHistoryCheckpointStoreTests : MongoTestBase
     }
 
     [Fact]
-    public async Task ClearResumeTokenAsync_WhenTheStoredTokenIsTheExpectedOne_ShouldRemoveItAndKeepTheDocument()
+    public async Task SaveResumeTokenAsync_ShouldStampTheServerTimeOfTheSave()
     {
+        var before = DateTime.UtcNow.AddMinutes(-1);
+
         await _sut.SaveResumeTokenAsync(new BsonDocument("_data", "AAA"), CancellationToken.None);
 
-        await _sut.ClearResumeTokenAsync(new BsonDocument("_data", "AAA"), CancellationToken.None);
+        var document = await Checkpoints.Find(new BsonDocument("_id", "myOrders")).FirstAsync();
+        Assert.InRange(document["SavedAt"].ToUniversalTime(), before, DateTime.UtcNow.AddMinutes(1));
+    }
 
+    [Fact]
+    public async Task RecordGapAsync_WhenTheStoredTokenIsTheExpectedOne_ShouldRemoveItAndRecordTheGapSinceItsSave()
+    {
+        await _sut.SaveResumeTokenAsync(new BsonDocument("_data", "AAA"), CancellationToken.None);
+        var savedAt = (await Checkpoints.Find(new BsonDocument("_id", "myOrders")).FirstAsync())["SavedAt"].ToUniversalTime();
+
+        var gap = await _sut.RecordGapAsync(new BsonDocument("_data", "AAA"), CancellationToken.None);
+
+        Assert.NotNull(gap);
+        Assert.Equal(savedAt, gap!.FromUtc);
+        Assert.True(gap.ToUtc >= savedAt);
+        Assert.Equal(gap, await _sut.GetLastGapAsync(CancellationToken.None));
         Assert.Null(await _sut.GetResumeTokenAsync(CancellationToken.None));
         Assert.Equal(1, await Checkpoints.CountDocumentsAsync(new BsonDocument("_id", "myOrders")));
     }
 
     [Fact]
-    public async Task ClearResumeTokenAsync_WhenADifferentTokenIsStored_ShouldKeepIt()
+    public async Task RecordGapAsync_WhenTheTokenWasSavedWithoutATime_ShouldRecordAGapWithAnUnknownStart()
+    {
+        // A checkpoint written before SavedAt existed.
+        await Checkpoints.InsertOneAsync(new BsonDocument { { "_id", "myOrders" }, { "ResumeToken", new BsonDocument("_data", "AAA") } });
+
+        var gap = await _sut.RecordGapAsync(new BsonDocument("_data", "AAA"), CancellationToken.None);
+
+        Assert.NotNull(gap);
+        Assert.Null(gap!.FromUtc);
+    }
+
+    [Fact]
+    public async Task RecordGapAsync_WhenADifferentTokenIsStored_ShouldKeepItAndRecordNothing()
     {
         // A stale consumer (expects AAA) must not wipe the newer position another one saved.
         await _sut.SaveResumeTokenAsync(new BsonDocument("_data", "BBB"), CancellationToken.None);
 
-        await _sut.ClearResumeTokenAsync(new BsonDocument("_data", "AAA"), CancellationToken.None);
+        var gap = await _sut.RecordGapAsync(new BsonDocument("_data", "AAA"), CancellationToken.None);
 
+        Assert.Null(gap);
+        Assert.Null(await _sut.GetLastGapAsync(CancellationToken.None));
         Assert.Equal(new BsonDocument("_data", "BBB"), await _sut.GetResumeTokenAsync(CancellationToken.None));
     }
 
     [Fact]
-    public async Task ClearResumeTokenAsync_WhenExpectedTokenIsNull_ShouldKeepAStoredToken()
+    public async Task RecordGapAsync_WhenExpectedTokenIsNull_ShouldKeepAStoredTokenAndRecordNothing()
     {
         await _sut.SaveResumeTokenAsync(new BsonDocument("_data", "BBB"), CancellationToken.None);
 
-        await _sut.ClearResumeTokenAsync(null, CancellationToken.None);
+        Assert.Null(await _sut.RecordGapAsync(null, CancellationToken.None));
 
         Assert.Equal(new BsonDocument("_data", "BBB"), await _sut.GetResumeTokenAsync(CancellationToken.None));
     }
 
     [Fact]
-    public async Task ClearResumeTokenAsync_WhenNoDocument_ShouldNotCreateOne()
+    public async Task RecordGapAsync_WhenNoDocument_ShouldNotCreateOne()
     {
-        await _sut.ClearResumeTokenAsync(new BsonDocument("_data", "AAA"), CancellationToken.None);
+        Assert.Null(await _sut.RecordGapAsync(new BsonDocument("_data", "AAA"), CancellationToken.None));
 
         Assert.Equal(0, await Checkpoints.CountDocumentsAsync(FilterDefinition<BsonDocument>.Empty));
+    }
+
+    [Fact]
+    public async Task GetLastGapAsync_WhenNoGapWasRecorded_ShouldReturnNull()
+    {
+        await _sut.SaveResumeTokenAsync(new BsonDocument("_data", "AAA"), CancellationToken.None);
+
+        Assert.Null(await _sut.GetLastGapAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveResumeTokenAsync_AfterAGap_ShouldKeepTheGapForTheHealthWindow()
+    {
+        await _sut.SaveResumeTokenAsync(new BsonDocument("_data", "AAA"), CancellationToken.None);
+        var gap = await _sut.RecordGapAsync(new BsonDocument("_data", "AAA"), CancellationToken.None);
+
+        await _sut.SaveResumeTokenAsync(new BsonDocument("_data", "BBB"), CancellationToken.None);
+
+        Assert.Equal(gap, await _sut.GetLastGapAsync(CancellationToken.None));
     }
 
     [Fact]
@@ -108,13 +157,13 @@ public class MongoHistoryCheckpointStoreTests : MongoTestBase
     }
 
     [Fact]
-    public async Task ClearingOneSource_ShouldKeepTheOthersToken()
+    public async Task RecordingAGapOnOneSource_ShouldKeepTheOthersToken()
     {
         var other = new MongoHistoryCheckpointStore(Database, "simpleHistoryCheckpoint", "carts");
         await _sut.SaveResumeTokenAsync(new BsonDocument("_data", "A"), CancellationToken.None);
         await other.SaveResumeTokenAsync(new BsonDocument("_data", "B"), CancellationToken.None);
 
-        await _sut.ClearResumeTokenAsync(new BsonDocument("_data", "A"), CancellationToken.None);
+        await _sut.RecordGapAsync(new BsonDocument("_data", "A"), CancellationToken.None);
 
         Assert.Null(await _sut.GetResumeTokenAsync(CancellationToken.None));
         Assert.NotNull(await other.GetResumeTokenAsync(CancellationToken.None));
