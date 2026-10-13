@@ -36,11 +36,7 @@ public sealed class HistoryHealthState
         }
     }
 
-    /// <summary>
-    /// Exception type name of the last failure of the loop, or null when it never failed. Only the type: messages of
-    /// driver errors carry host names and ports, and the health check description is served over HTTP. The full
-    /// exception is in the log.
-    /// </summary>
+    /// <summary>Exception type name of the last failure of the loop, or null when it never failed.</summary>
     public string? LastError
     {
         get

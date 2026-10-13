@@ -28,7 +28,6 @@ public class HistoryHostedService : BackgroundService
     {
     }
 
-    // Lets the tests observe the requested delays instead of waiting for them.
     internal HistoryHostedService(
         IHistorySetup setup,
         IHistoryProcessor processor,
@@ -65,7 +64,6 @@ public class HistoryHostedService : BackgroundService
                 await _setup.EnsureSetupAsync(stoppingToken);
                 await _processor.RunAsync(stoppingToken);
 
-                // A clean return (stream closed or gap) is not a failure.
                 backoff = _options.InitialBackoff;
             }
             catch (Exception) when (stoppingToken.IsCancellationRequested)

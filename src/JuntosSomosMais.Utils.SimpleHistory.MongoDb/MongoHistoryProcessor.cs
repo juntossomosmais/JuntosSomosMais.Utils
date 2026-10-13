@@ -57,11 +57,8 @@ public class MongoHistoryProcessor : IHistoryProcessor
     /// <inheritdoc />
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        // The position this run owns: the token it started from, then each token it saves. A gap clears only that
-        // position, never a newer one written by another consumer.
         var ownToken = await _checkpoints.GetResumeTokenAsync(cancellationToken);
 
-        // A gap recorded before a restart keeps being reported for its window.
         var lastGap = await _checkpoints.GetLastGapAsync(cancellationToken);
         if (lastGap is not null)
             _state.MarkGap(lastGap.FromUtc, lastGap.ToUtc);
@@ -75,7 +72,6 @@ public class MongoHistoryProcessor : IHistoryProcessor
             BatchSize = _options.BatchSize,
         };
 
-        // No $match: invalidate/drop events must stay visible.
         var pipeline = new EmptyPipelineDefinition<ChangeStreamDocument<BsonDocument>>();
 
         try
@@ -107,9 +103,6 @@ public class MongoHistoryProcessor : IHistoryProcessor
                     _state.MarkCheckpoint();
                 }
             }
-
-            // Closed stream (invalidate after a drop/rename): the token saved with the batch that carried the
-            // invalidate event is valid for StartAfter, so the next run resumes without losing events.
         }
         catch (MongoCommandException ex) when (ex.Code == ChangeStreamHistoryLostCode)
         {

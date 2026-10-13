@@ -21,7 +21,6 @@ public sealed class MongoHistoryPurger(IMongoDatabase database, TimeProvider? ti
         if (request.BatchSize <= 0)
             throw new ArgumentException("BatchSize must be positive.", nameof(request));
 
-        // Pins an open upper bound once.
         var pinnedTo = to ?? (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
         if (from >= pinnedTo)
             throw new ArgumentException(
