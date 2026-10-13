@@ -14,14 +14,16 @@ public class MongoHistoryPurgerTests : MongoTestBase
 
     private IMongoCollection<BsonDocument> Collection(string name) => Database.GetCollection<BsonDocument>(name);
 
+    // Seeds through the typed collection, as the worker writes: the purger's filter must match how HistoryEntry is
+    // serialized, not a copy of its field names.
     private Task SeedAsync(string collection, params DateTime[] dates) =>
-        Collection(collection).InsertManyAsync(dates.Select((date, i) => new BsonDocument
+        Database.GetCollection<HistoryEntry>(collection).InsertManyAsync(dates.Select((date, i) => new HistoryEntry
         {
-            { "EntityId", "e" + i },
-            { "HistoryDate", date },
-            { "HistoryType", HistoryTypes.Created },
-            { "Data", new BsonDocument("N", i) },
-            { "ChangeToken", collection + "-" + Guid.NewGuid().ToString("N") },
+            EntityId = "e" + i,
+            HistoryDate = date,
+            HistoryType = HistoryTypes.Created,
+            Data = new BsonDocument("N", i),
+            ChangeToken = collection + "-" + Guid.NewGuid().ToString("N"),
         }));
 
     private async Task<List<DateTime>> DatesAsync(string collection) =>
@@ -257,7 +259,7 @@ public class MongoHistoryPurgerTests : MongoTestBase
     {
         var old = Cutoff.AddDays(-10);
         var recent = Cutoff.AddDays(1);
-        await Collection("ordersHistory").InsertManyAsync(new[]
+        await Database.GetCollection<HistoryEntry>("ordersHistory").InsertManyAsync(new[]
         {
             Row("lost", old, HistoryTypes.Created, new BsonDocument("Status", "A")),
             Row("lost", recent, HistoryTypes.Changed, new BsonDocument("Status", "B")),
@@ -270,10 +272,13 @@ public class MongoHistoryPurgerTests : MongoTestBase
         Assert.Throws<InvalidOperationException>(() => HistoryReplay.Rebuild(RowsOf("lost")));
         Assert.Equal("B", HistoryReplay.Rebuild(RowsOf("kept"))["Status"].AsString);
 
-        static BsonDocument Row(string entity, DateTime date, string type, BsonDocument data) => new()
+        static HistoryEntry Row(string entity, DateTime date, string type, BsonDocument data) => new()
         {
-            { "EntityId", entity }, { "HistoryDate", date }, { "HistoryType", type }, { "Data", data },
-            { "ChangeToken", Guid.NewGuid().ToString("N") },
+            EntityId = entity,
+            HistoryDate = date,
+            HistoryType = type,
+            Data = data,
+            ChangeToken = Guid.NewGuid().ToString("N"),
         };
 
         IEnumerable<HistoryEntry> RowsOf(string entity) =>
