@@ -206,6 +206,19 @@ public class MongoHistoryPurgerTests : MongoTestBase
     }
 
     [Fact]
+    public async Task PurgeAsync_WithFromOnlyAfterTheStartOfThePurge_ShouldThrowAndDeleteNothing()
+    {
+        await SeedAsync("ordersHistory", Cutoff.AddDays(1));
+        var sut = new MongoHistoryPurger(Database, new FakeTimeProvider(Cutoff));
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(
+            () => sut.PurgeAsync(new[] { Orders }, new HistoryPurgeRequest(Cutoff.AddHours(1), null, false)));
+
+        Assert.Contains("start of the purge", ex.Message);
+        Assert.Single(await DatesAsync("ordersHistory"));
+    }
+
+    [Fact]
     public async Task PurgeAsync_WithUnspecifiedKind_ShouldThrow()
     {
         var unspecified = new DateTime(2025, 6, 1, 12, 0, 0, DateTimeKind.Unspecified);

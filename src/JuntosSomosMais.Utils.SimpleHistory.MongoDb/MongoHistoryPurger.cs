@@ -18,17 +18,19 @@ public sealed class MongoHistoryPurger(IMongoDatabase database, TimeProvider? ti
         var to = ToUtc(request.ToUtc, nameof(request.ToUtc));
         if (from is null && to is null)
             throw new ArgumentException("At least one of FromUtc or ToUtc is required: the purger never deletes every row.", nameof(request));
-        if (from >= to)
-            throw new ArgumentException("FromUtc must be before ToUtc.", nameof(request));
         if (request.BatchSize <= 0)
             throw new ArgumentException("BatchSize must be positive.", nameof(request));
+
+        // Pins an open upper bound once.
+        var pinnedTo = to ?? (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
+        if (from >= pinnedTo)
+            throw new ArgumentException(
+                to is null ? "FromUtc must be before the start of the purge." : "FromUtc must be before ToUtc.", nameof(request));
 
         var list = sources.ToList();
         foreach (var source in list)
             source.Validate();
 
-        // Pins an open upper bound once.
-        var pinnedTo = to ?? (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
         var filter = BuildFilter(from, pinnedTo);
         var results = new List<HistoryPurgeResult>(list.Count);
         foreach (var historyName in list.Select(source => source.HistoryName))
