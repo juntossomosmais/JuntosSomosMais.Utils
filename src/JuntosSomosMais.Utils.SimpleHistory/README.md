@@ -26,12 +26,12 @@ database. One row describes one change of one entity:
 |---|---|
 | row id | Unique row id |
 | `EntityId` | Identifier of the tracked entity, in the provider's native type |
-| `HistoryDate` | UTC time of the change, as seen by the database |
+| `HistoryDate` | UTC time of the change, as seen by the database; for display and purge, not for ordering |
 | `HistoryType` | One of `HistoryTypes`: `+` created, `~` changed, `=` snapshot, `-` deleted |
 | `Data` | `+`, `=`, `-`: the full entity without its id (only the tracked fields when `TrackedFields` is set). `~`: only the changed top-level fields with their new values, or the whole entity in full-document mode |
 | `RemovedFields` | `~` only: top-level fields that no longer exist |
 | `ChangedFields` | Full-document mode only: the top-level fields whose value changed. Its presence on a `~` row means `Data` is the whole entity, not a delta |
-| `ChangeToken` | Provider-specific position of the change; unique (makes inserts idempotent on redelivery) and the ordering tiebreaker for equal `HistoryDate` |
+| `ChangeToken` | Provider-specific position of the change; unique (makes inserts idempotent on redelivery) and the ordering key of an entity's rows |
 
 Rules a provider follows:
 

@@ -8,7 +8,7 @@ public static class HistoryReplay
     /// Replays the rows. A chain that ends in a delete yields the last version before the delete; a chain that
     /// continues after a delete (the entity was re-inserted) yields the re-inserted document's version.
     /// </summary>
-    /// <param name="rows">Rows of ONE entity, oldest first (<c>HistoryDate</c>, then <c>ChangeToken</c>).</param>
+    /// <param name="rows">Rows of ONE entity, oldest first (sorted by <c>ChangeToken</c>).</param>
     /// <param name="upToChangeToken">When set, stops after applying the row with that <c>ChangeToken</c>.</param>
     /// <exception cref="InvalidOperationException">A delta follows no base row, or the chain has no base row.</exception>
     public static BsonDocument Rebuild(IEnumerable<HistoryEntry> rows, string? upToChangeToken = null)

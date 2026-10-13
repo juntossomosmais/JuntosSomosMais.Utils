@@ -85,8 +85,8 @@ public class MongoHistorySetupTests : MongoTestBase
         var token = Assert.Single(indexes, i => i["name"].AsString == "ordersHistory-change-token");
         Assert.True(token.GetValue("unique", false).AsBoolean);
         Assert.Equal(new BsonDocument("ChangeToken", 1), token["key"].AsBsonDocument);
-        var entity = Assert.Single(indexes, i => i["name"].AsString == "ordersHistory-entity-id-history-date");
-        Assert.Equal(new BsonDocument { { "EntityId", 1 }, { "HistoryDate", -1 }, { "ChangeToken", -1 } }, entity["key"].AsBsonDocument);
+        var entity = Assert.Single(indexes, i => i["name"].AsString == "ordersHistory-entity-id-change-token");
+        Assert.Equal(new BsonDocument { { "EntityId", 1 }, { "ChangeToken", -1 } }, entity["key"].AsBsonDocument);
         Assert.False(entity.GetValue("unique", false).AsBoolean);
         var date = Assert.Single(indexes, i => i["name"].AsString == "ordersHistory-history-date");
         Assert.Equal(new BsonDocument("HistoryDate", 1), date["key"].AsBsonDocument);
@@ -152,6 +152,29 @@ public class MongoHistorySetupTests : MongoTestBase
         Assert.False(carts!["options"].AsBsonDocument.Contains("storageEngine"));
         using var all = await Database.ListCollectionNamesAsync(new ListCollectionNamesOptions { Filter = new BsonDocument("name", "simpleHistoryCheckpoint") });
         Assert.Single(await all.ToListAsync());
+    }
+
+    [Fact]
+    public async Task EntityIndex_ShouldServeTheDocumentedReadOfOneEntityInChangeTokenOrderWithoutASort()
+    {
+        await new MongoHistorySetup(Database, Orders).EnsureSetupAsync(CancellationToken.None);
+        await Database.GetCollection<HistoryEntry>("ordersHistory").InsertManyAsync(Enumerable.Range(0, 20).Select(i => new HistoryEntry
+        {
+            EntityId = "e" + (i % 4),
+            HistoryDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddMinutes(-i),
+            ChangeToken = i.ToString("D4"),
+        }));
+
+        var explain = await Database.RunCommandAsync<BsonDocument>(new BsonDocument
+        {
+            { "explain", new BsonDocument { { "find", "ordersHistory" }, { "filter", new BsonDocument("EntityId", "e1") }, { "sort", new BsonDocument("ChangeToken", 1) } } },
+            { "verbosity", "queryPlanner" },
+        });
+
+        var plan = explain.ToJson();
+        Assert.Contains("ordersHistory-entity-id-change-token", plan);
+        Assert.DoesNotContain("\"SORT\"", plan);
+        Assert.DoesNotContain("COLLSCAN", plan);
     }
 
     [Fact]

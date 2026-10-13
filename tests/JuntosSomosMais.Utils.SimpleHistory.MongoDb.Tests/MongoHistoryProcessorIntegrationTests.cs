@@ -96,7 +96,7 @@ public class MongoHistoryProcessorIntegrationTests : MongoTestBase
         WaitForAsync(GetRowsAsync, rows => rows.Count >= count);
 
     private Task<List<HistoryEntry>> GetRowsAsync() =>
-        History.Find(FilterDefinition<HistoryEntry>.Empty).SortBy(h => h.HistoryDate).ThenBy(h => h.ChangeToken).ToListAsync();
+        History.Find(FilterDefinition<HistoryEntry>.Empty).SortBy(h => h.ChangeToken).ToListAsync();
 
     private static BsonDocument NewOrder(ObjectId id, string status = "NEW") =>
         new() { { "_id", id }, { "SalesOrder", "SO-" + id }, { "StatusOrder", status }, { "CreationDate", DateTime.UtcNow }, { "Total", 10 } };
@@ -322,7 +322,7 @@ public class MongoHistoryProcessorIntegrationTests : MongoTestBase
         await things.UpdateOneAsync(new BsonDocument("_id", 42), new BsonDocument("$set", new BsonDocument("V", 4)));
 
         var rows = await WaitForAsync(
-            () => thingsHistory.Find(FilterDefinition<HistoryEntry>.Empty).SortBy(h => h.HistoryDate).ThenBy(h => h.ChangeToken).ToListAsync(),
+            () => thingsHistory.Find(FilterDefinition<HistoryEntry>.Empty).SortBy(h => h.ChangeToken).ToListAsync(),
             r => r.Count >= 4);
 
         Assert.Contains(rows, r => r.EntityId == new BsonString("abc") && r.HistoryType == "+");
@@ -390,7 +390,7 @@ public class MongoHistoryProcessorIntegrationTests : MongoTestBase
         await source.UpdateOneAsync(new BsonDocument("_id", id), new BsonDocument("$unset", new BsonDocument("Total", "")));
 
         var rows = await WaitForAsync(
-            () => history.Find(FilterDefinition<HistoryEntry>.Empty).SortBy(h => h.HistoryDate).ThenBy(h => h.ChangeToken).ToListAsync(),
+            () => history.Find(FilterDefinition<HistoryEntry>.Empty).SortBy(h => h.ChangeToken).ToListAsync(),
             r => r.Count >= 3);
 
         Assert.Equal<string>(["+", "~", "~"], rows.Select(r => r.HistoryType));

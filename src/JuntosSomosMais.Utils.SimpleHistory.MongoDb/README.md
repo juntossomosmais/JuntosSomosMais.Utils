@@ -134,7 +134,7 @@ duplicates, so the history stays correct; only the checkpoint position may brief
 ### 4. Verify
 
 1. Start the worker, then insert and update a tracked document.
-2. `db.myOrdersHistory.find({ EntityId: <id> }).sort({ HistoryDate: 1 })` shows a `+` row and a `~` row whose `Data`
+2. `db.myOrdersHistory.find({ EntityId: <id> }).sort({ ChangeToken: 1 })` shows a `+` row and a `~` row whose `Data`
    holds only the changed fields (delta mode) or the whole document plus `ChangedFields` (full-document mode).
 3. `db.simpleHistoryCheckpoint.findOne({ _id: "myOrders" })` has a `ResumeToken`.
 4. Stop the worker, change a document, start it again: the missed change appears exactly once.
@@ -144,8 +144,8 @@ duplicates, so the history stays correct; only the checkpoint position may brief
 1. Creates the tracked collection if missing and enables `changeStreamPreAndPostImages` on it.
 2. Creates the history collection (`block_compressor=zstd` unless `CompressHistory = false`) before its indexes.
 3. Creates the shared checkpoint collection.
-4. Creates three indexes on the history collection, named after it: `{history}-entity-id-history-date`
-   (`EntityId`, `HistoryDate` desc, `ChangeToken` desc), the unique `{history}-change-token` (`ChangeToken`) and
+4. Creates three indexes on the history collection, named after it: `{history}-entity-id-change-token`
+   (`EntityId`, `ChangeToken` desc), the unique `{history}-change-token` (`ChangeToken`) and
    `{history}-history-date` (`HistoryDate`, used by the purge below).
 
 ## Options (`MongoHistoryOptions`, per tracked collection)
@@ -177,12 +177,12 @@ tracked throw `InvalidOperationException` at registration, not at runtime.
 |---|---|
 | `_id` | Row id (`ObjectId`) |
 | `EntityId` | `_id` of the tracked document, any BSON type (ObjectId, string, Guid, int...) |
-| `HistoryDate` | Wall time of the change (UTC) |
+| `HistoryDate` | Wall time of the change (UTC), for display and purge. It follows the primary's clock, so it is not an ordering key |
 | `HistoryType` | `+` created, `~` changed, `=` full snapshot (replace without pre-image), `-` deleted |
 | `Data` | `+`, `=`, `-`: the full document without `_id` (only the tracked fields when `TrackedFields` is set). `~`: only the changed top-level fields with their new values, or the whole document in full-document mode |
 | `RemovedFields` | `~` only: top-level fields that were removed |
 | `ChangedFields` | Full-document mode only: the top-level fields whose value changed (may be empty when only fields were removed). Its presence on a `~` row means `Data` is the whole document |
-| `ChangeToken` | Resume token of the event, i.e. its oplog position; unique (makes inserts idempotent) and the ordering tiebreaker for equal `HistoryDate` |
+| `ChangeToken` | Resume token of the event, i.e. its oplog position; unique (makes inserts idempotent) and the ordering key: sorted as a string, it follows the order of the changes |
 
 Ignored fields never count as a change (a change that only touches them records nothing) and are left out of delta
 rows; `+`, `=`, `-` and full-document `~` rows carry them. With `TrackedFields` every row keeps only the listed
@@ -199,7 +199,7 @@ storage matters more than read convenience.
 ```csharp
 var rows = await database.GetCollection<HistoryEntry>("myOrdersHistory")
     .Find(Builders<HistoryEntry>.Filter.Eq(h => h.EntityId, new BsonObjectId(id)))
-    .SortBy(h => h.HistoryDate).ThenBy(h => h.ChangeToken)
+    .SortBy(h => h.ChangeToken)
     .ToListAsync();
 
 BsonDocument current = HistoryReplay.Rebuild(rows);                       // latest version (without _id)

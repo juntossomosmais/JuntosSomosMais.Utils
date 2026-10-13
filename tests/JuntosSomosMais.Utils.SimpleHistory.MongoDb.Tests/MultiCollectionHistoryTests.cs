@@ -66,10 +66,10 @@ public class MultiCollectionHistoryTests : MongoTestBase
             await carts.UpdateOneAsync(new BsonDocument("_id", "cart-1"), new BsonDocument("$set", new BsonDocument { { "CreationDate", 2 }, { "Items", 2 } }));
 
             var orderRows = await WaitForAsync(
-                () => ordersHistory.Find(FilterDefinition<HistoryEntry>.Empty).SortBy(h => h.HistoryDate).ThenBy(h => h.ChangeToken).ToListAsync(),
+                () => ordersHistory.Find(FilterDefinition<HistoryEntry>.Empty).SortBy(h => h.ChangeToken).ToListAsync(),
                 rows => rows.Count >= 3);
             var cartRows = await WaitForAsync(
-                () => cartsHistory.Find(FilterDefinition<HistoryEntry>.Empty).SortBy(h => h.HistoryDate).ThenBy(h => h.ChangeToken).ToListAsync(),
+                () => cartsHistory.Find(FilterDefinition<HistoryEntry>.Empty).SortBy(h => h.ChangeToken).ToListAsync(),
                 rows => rows.Count >= 2);
             await Task.Delay(500);
 

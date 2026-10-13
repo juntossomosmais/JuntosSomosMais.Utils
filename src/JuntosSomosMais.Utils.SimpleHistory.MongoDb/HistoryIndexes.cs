@@ -11,10 +11,10 @@ internal static class HistoryIndexes
         var keys = Builders<HistoryEntry>.IndexKeys;
         return
         [
-            // One entity's history, newest first; ChangeToken (the oplog position) breaks HistoryDate ties.
+            // One entity's history, newest first, in oplog order (HistoryDate follows the primary's clock).
             new(
-                keys.Ascending(e => e.EntityId).Descending(e => e.HistoryDate).Descending(e => e.ChangeToken),
-                new CreateIndexOptions { Name = historyName + "-entity-id-history-date" }),
+                keys.Ascending(e => e.EntityId).Descending(e => e.ChangeToken),
+                new CreateIndexOptions { Name = historyName + "-entity-id-change-token" }),
             // Makes inserts idempotent on redelivery.
             new(
                 keys.Ascending(e => e.ChangeToken),

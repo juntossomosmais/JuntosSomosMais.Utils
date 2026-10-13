@@ -17,7 +17,11 @@ public class HistoryEntry
     [BsonElement(nameof(EntityId))]
     public BsonValue EntityId { get; set; } = BsonNull.Value;
 
-    /// <summary>change.WallTime ?? ClusterTime (1 s resolution), UTC.</summary>
+    /// <summary>
+    /// change.WallTime ?? ClusterTime (1 s resolution), UTC. For display and purge only: it follows the primary's
+    /// clock, so after a clock step back or a failover a later change can carry an earlier date. Order by
+    /// <see cref="ChangeToken"/>.
+    /// </summary>
     [BsonElement(nameof(HistoryDate))]
     public DateTime HistoryDate { get; set; }
 
@@ -48,7 +52,7 @@ public class HistoryEntry
 
     /// <summary>
     /// Resume-token <c>_data</c> string: the position of the change in the oplog. Unique (makes inserts idempotent)
-    /// and the ordering tiebreaker for equal <see cref="HistoryDate"/>.
+    /// and the ordering key: sorted as a string, it follows the order of the changes.
     /// </summary>
     [BsonElement(nameof(ChangeToken))]
     public string ChangeToken { get; set; } = "";
