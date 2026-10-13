@@ -34,6 +34,20 @@ public class MongoHistoryRegistrationTests
     }
 
     [Fact]
+    public void AddMongoHistory_CalledTwice_ShouldThrowAndKeepOnlyTheFirstRegistration()
+    {
+        var services = new ServiceCollection();
+        services.AddMongoHistory(_ => new Mock<IMongoDatabase>().Object, h => h.Track("orders"));
+        var registered = services.Count;
+
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => services.AddMongoHistory(_ => new Mock<IMongoDatabase>().Object, h => h.Track("carts")));
+
+        Assert.Contains("already called", ex.Message);
+        Assert.Equal(registered, services.Count);
+    }
+
+    [Fact]
     public void AddMongoHistory_ShouldIsolateTheOptionsOfEachSource()
     {
         using var provider = Build(h => h

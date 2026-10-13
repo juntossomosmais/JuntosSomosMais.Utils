@@ -13,17 +13,24 @@ public static class ServiceCollectionExtensions
     /// change stream), plus a <see cref="HistorySources"/> singleton, a <see cref="HistoryHealthRegistry"/> singleton
     /// and the <see cref="IHistoryPurger"/>. No health check is registered: opt in with
     /// <c>services.AddHealthChecks().AddSimpleHistoryHealthCheck()</c>. Call it only in the deployment that should
-    /// consume the streams.
+    /// consume the streams, and only once: track every collection in the same <paramref name="configure"/>.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="database">Resolves the database lazily, when the hosted services are created.</param>
     /// <param name="configure">Declares the tracked collections.</param>
-    /// <exception cref="InvalidOperationException">The configuration is invalid (checked at registration).</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The configuration is invalid, or SimpleHistory is already registered (checked at registration).
+    /// </exception>
     public static IServiceCollection AddMongoHistory(
         this IServiceCollection services,
         Func<IServiceProvider, IMongoDatabase> database,
         Action<MongoHistoryBuilder> configure)
     {
+        // The health check and the purger resolve one HistorySources and one HistoryHealthRegistry: a second call
+        // would leave the sources of the first one out of both.
+        if (services.Any(d => d.ServiceType == typeof(HistorySources)))
+            throw new InvalidOperationException("AddMongoHistory was already called: track every collection in one call.");
+
         var builder = new MongoHistoryBuilder();
         configure(builder);
         var sources = builder.Build();

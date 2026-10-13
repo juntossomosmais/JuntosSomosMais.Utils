@@ -121,6 +121,8 @@ registration and registers:
 - a `HistoryHealthRegistry` singleton with the health state of every tracked collection, read by the health check;
 - `IHistoryPurger` (see Maintenance).
 
+Call it once per service, with every tracked collection in the same declaration: a second call throws.
+
 It registers no health check: chain `AddSimpleHistoryHealthCheck(name = "simplehistory", failureStatus = null,
 tags = null)` on `services.AddHealthChecks()` to expose one.
 
