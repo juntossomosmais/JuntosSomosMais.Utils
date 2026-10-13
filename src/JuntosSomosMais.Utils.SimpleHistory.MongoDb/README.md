@@ -16,6 +16,8 @@ The change stream consumer itself (processor, mapper, checkpoint store) is inter
 
 ## Requirements
 
+- .NET 6 or newer: the packages target `net6.0` and `net8.0` (on .NET 6, `TimeProvider` comes from
+  `Microsoft.Bcl.TimeProvider`).
 - MongoDB 6.0 or newer, as a **replica set or sharded cluster** (change streams do not exist on a standalone) with
   WiredTiger.
 - Privileges of the user that runs it: `changeStream` and `find` on the tracked collection; read/write and

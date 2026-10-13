@@ -7,6 +7,11 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <MinVerTagPrefix>simplehistory/v</MinVerTagPrefix>
+    <!-- Services still on .NET 6 consume these packages too. Clears the single target of Directory.Build.props. -->
+    <TargetFramework></TargetFramework>
+    <TargetFrameworks>net6.0;net8.0</TargetFrameworks>
+    <LangVersion>12</LangVersion>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="JuntosSomosMais.Utils.SimpleHistory.Tests" />
@@ -20,6 +25,10 @@
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net6.0'">
+    <!-- TimeProvider is in the BCL from .NET 8; this is its official package for older targets. -->
+    <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="8.0.1" />
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
