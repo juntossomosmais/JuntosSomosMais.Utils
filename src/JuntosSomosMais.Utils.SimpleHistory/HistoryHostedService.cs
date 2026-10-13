@@ -8,7 +8,7 @@ namespace JuntosSomosMais.Utils.SimpleHistory;
 /// (taken from <see cref="HistoryOptions"/>). One instance per tracked collection, so a failing source never blocks
 /// another.
 /// </summary>
-public class HistoryHostedService : BackgroundService
+internal class HistoryHostedService : BackgroundService
 {
     private readonly IHistorySetup _setup;
     private readonly IHistoryProcessor _processor;

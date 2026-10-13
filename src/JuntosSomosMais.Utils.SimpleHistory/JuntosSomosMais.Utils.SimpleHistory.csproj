@@ -10,6 +10,11 @@
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="JuntosSomosMais.Utils.SimpleHistory.Tests" />
+    <!-- The providers ship from this repository with the same tag, so the provider contracts stay internal. -->
+    <InternalsVisibleTo Include="JuntosSomosMais.Utils.SimpleHistory.MongoDb" />
+    <InternalsVisibleTo Include="JuntosSomosMais.Utils.SimpleHistory.MongoDb.Tests" />
+    <!-- Moq builds its proxies of the internal contracts in this assembly. -->
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.0" />

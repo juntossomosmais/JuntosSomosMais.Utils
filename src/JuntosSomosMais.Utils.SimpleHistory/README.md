@@ -118,7 +118,9 @@ services.AddHealthChecks().AddSimpleHistoryHealthCheck();
 
 ## Writing a provider
 
-A provider package references this one and ships:
+The provider contracts (`IHistorySetup`, `IHistoryProcessor`, `HistoryHostedService`, the health state writers) are
+internal while the packages are on 0.x, so they can still change without a breaking release. A provider therefore
+lives in this repository, ships with the same tag and is listed in the core's `InternalsVisibleTo`. It ships:
 
 - `XxxHistoryOptions : HistoryOptions` and `XxxHistoryBuilder : HistoryBuilder<XxxHistoryOptions>` (with a covariant
   `new Track(...)` so chaining keeps the derived type).

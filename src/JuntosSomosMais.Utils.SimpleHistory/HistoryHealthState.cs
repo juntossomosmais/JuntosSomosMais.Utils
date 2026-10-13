@@ -67,14 +67,14 @@ public sealed class HistoryHealthState
     }
 
     /// <summary>The checkpoint, failure and gap fields read together under one lock, so they describe the same moment.</summary>
-    public HistoryHealthSnapshot Snapshot()
+    internal HistoryHealthSnapshot Snapshot()
     {
         lock (_gate)
             return new HistoryHealthSnapshot(_lastCheckpointUtc, _lastError, _lastErrorUtc, _lastGap);
     }
 
     /// <summary>Records a checkpoint saved now.</summary>
-    public void MarkCheckpoint()
+    internal void MarkCheckpoint()
     {
         var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
         lock (_gate)
@@ -87,7 +87,7 @@ public sealed class HistoryHealthState
     /// </summary>
     /// <param name="fromUtc">When the last checkpoint before the gap was saved, or null when unknown.</param>
     /// <param name="toUtc">When the stream restarted from now; null means now.</param>
-    public void MarkGap(DateTime? fromUtc, DateTime? toUtc)
+    internal void MarkGap(DateTime? fromUtc, DateTime? toUtc)
     {
         var gap = new HistoryGap(fromUtc, toUtc ?? _timeProvider.GetUtcNow().UtcDateTime);
         lock (_gate)
@@ -98,7 +98,7 @@ public sealed class HistoryHealthState
     }
 
     /// <summary>Records a failure of the loop that happened now (only the exception type name is kept).</summary>
-    public void MarkFailure(Exception exception)
+    internal void MarkFailure(Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);
         var utcNow = _timeProvider.GetUtcNow().UtcDateTime;

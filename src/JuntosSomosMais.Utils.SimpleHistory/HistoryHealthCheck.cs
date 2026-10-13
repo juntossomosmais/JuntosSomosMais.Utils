@@ -11,7 +11,7 @@ namespace JuntosSomosMais.Utils.SimpleHistory;
 /// never a failure: the stream is running again and a restart would not bring the lost changes back. Register it with
 /// <see cref="HealthChecksBuilderExtensions.AddSimpleHistoryHealthCheck"/>.
 /// </summary>
-public sealed class HistoryHealthCheck : IHealthCheck
+internal sealed class HistoryHealthCheck : IHealthCheck
 {
     private readonly HistoryHealthRegistry _registry;
     private readonly TimeProvider _timeProvider;

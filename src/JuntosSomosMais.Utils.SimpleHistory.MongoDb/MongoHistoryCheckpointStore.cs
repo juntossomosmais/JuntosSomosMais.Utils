@@ -7,7 +7,7 @@ namespace JuntosSomosMais.Utils.SimpleHistory.MongoDb;
 /// Resume token of one tracked collection, in one document of the shared checkpoint collection:
 /// { _id = checkpoint id, ResumeToken, SavedAt, LastGap: { FromUtc, ToUtc } }.
 /// </summary>
-public class MongoHistoryCheckpointStore : IHistoryCheckpointStore
+internal class MongoHistoryCheckpointStore : IHistoryCheckpointStore
 {
     private const string ResumeTokenField = "ResumeToken";
     private const string SavedAtField = "SavedAt";

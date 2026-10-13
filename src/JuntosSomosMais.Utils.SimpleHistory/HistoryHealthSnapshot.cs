@@ -5,5 +5,5 @@ namespace JuntosSomosMais.Utils.SimpleHistory;
 /// <param name="LastError">Exception type name of the last failure, or null when the loop never failed.</param>
 /// <param name="LastErrorUtc">When the last failure happened, or null when the loop never failed.</param>
 /// <param name="LastGap">The last window whose changes were not recorded, or null when there was none.</param>
-public readonly record struct HistoryHealthSnapshot(
+internal readonly record struct HistoryHealthSnapshot(
     DateTime? LastCheckpointUtc, string? LastError, DateTime? LastErrorUtc, HistoryGap? LastGap = null);

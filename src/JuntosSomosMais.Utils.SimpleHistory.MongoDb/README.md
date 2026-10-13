@@ -10,9 +10,9 @@ Any number of collections can be tracked. Each one has its own history collectio
 hosted service, so they run independently.
 
 This is the MongoDB provider of `JuntosSomosMais.Utils.SimpleHistory` (referenced transitively). The core package holds the
-neutral parts: `HistoryOptions`, `HistoryBuilder<TOptions>`, `HistorySources`, `HistoryHostedService`, the
-`IHistorySetup` / `IHistoryProcessor` / `IHistoryPurger` contracts and the row contract every provider follows. The
-types below that start with `Mongo` are the implementations of those contracts for MongoDB.
+neutral parts: `HistoryOptions`, `HistoryBuilder<TOptions>`, `HistorySources`, the health check, the `IHistoryPurger`
+contract and the row contract every provider follows. The types below that start with `Mongo` are the MongoDB side.
+The change stream consumer itself (processor, mapper, checkpoint store) is internal: `AddMongoHistory` wires it.
 
 ## Requirements
 

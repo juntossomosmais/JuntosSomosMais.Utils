@@ -3,7 +3,7 @@ using MongoDB.Bson;
 namespace JuntosSomosMais.Utils.SimpleHistory.MongoDb;
 
 /// <summary>Resume token of ONE tracked collection.</summary>
-public interface IHistoryCheckpointStore
+internal interface IHistoryCheckpointStore
 {
     /// <summary>The saved resume token, or null when there is none.</summary>
     Task<BsonDocument?> GetResumeTokenAsync(CancellationToken cancellationToken);

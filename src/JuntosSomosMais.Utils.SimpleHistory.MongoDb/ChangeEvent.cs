@@ -4,7 +4,7 @@ using MongoDB.Driver;
 namespace JuntosSomosMais.Utils.SimpleHistory.MongoDb;
 
 /// <summary>Driver-independent view of a change stream event. Decouples mapping from driver types.</summary>
-public sealed record ChangeEvent(
+internal sealed record ChangeEvent(
     ChangeStreamOperationType Operation,
     BsonValue EntityId,
     BsonDocument? Before,

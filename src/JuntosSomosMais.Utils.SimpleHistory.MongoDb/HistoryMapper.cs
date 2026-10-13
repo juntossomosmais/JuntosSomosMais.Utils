@@ -6,7 +6,7 @@ namespace JuntosSomosMais.Utils.SimpleHistory.MongoDb;
 /// Pure mapping from a change stream event to a history row (or null when nothing changed). One instance per
 /// tracked collection, because the ignored/tracked fields and the row shape are per-collection options.
 /// </summary>
-public sealed class HistoryMapper
+internal sealed class HistoryMapper
 {
     private readonly HashSet<string> _ignoredFields;
     private readonly HashSet<string> _trackedFields;

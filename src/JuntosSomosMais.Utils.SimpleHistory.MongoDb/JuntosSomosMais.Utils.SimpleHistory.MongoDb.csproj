@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="JuntosSomosMais.Utils.SimpleHistory.MongoDb.Tests" />
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="MongoDB.Driver" Version="2.29.0" />

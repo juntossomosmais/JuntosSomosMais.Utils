@@ -4,7 +4,7 @@ using MongoDB.Driver;
 namespace JuntosSomosMais.Utils.SimpleHistory.MongoDb;
 
 /// <summary>Change stream consumer of one tracked collection. Works with any BSON type of <c>_id</c>.</summary>
-public class MongoHistoryProcessor : IHistoryProcessor
+internal class MongoHistoryProcessor : IHistoryProcessor
 {
     private const int ChangeStreamHistoryLostCode = 286;
 
