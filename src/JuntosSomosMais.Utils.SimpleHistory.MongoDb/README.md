@@ -238,8 +238,11 @@ the `-` form a new chain and `Rebuild` yields the re-inserted document.
 - **Pre-image retention.** Pre-images cost storage and oplog size. Bound them with
   `db.adminCommand({ setClusterParameter: { changeStreamOptions: { preAndPostImages: { expireAfterSeconds: 3600 } } } })`
   (some managed tiers restrict it).
-- **Missing images.** When an update has no post-image, the current documents are loaded with one query per batch, so
-  such a row may already reflect a later change; the later event records the same absolute values again.
+- **Missing images.** When an update has no post-image, the current documents are loaded with one query per batch.
+  Top-level fields set or removed by the update keep their exact values from the update description; only fields
+  changed through a nested path (or a truncated array) are read from the current document, so they may already
+  reflect a later change, which the later event records again. When the document is already gone, the row keeps only
+  the top-level changes.
 - **Large events.** With pre- and post-images, a replace carries two full documents; events above 16 MB stall the
   consumer (error 10334). On server 7.0+ `$changeStreamSplitLargeEvent` would be needed.
 - No backfill: history starts when tracking starts.

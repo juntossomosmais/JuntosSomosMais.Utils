@@ -244,8 +244,10 @@ public class MongoHistoryProcessorTests
 
         _source.Verify(o => o.FindAsync(It.IsAny<FilterDefinition<BsonDocument>>(), It.IsAny<FindOptions<BsonDocument, BsonDocument>>(), It.IsAny<CancellationToken>()), Times.Once);
         var batch = Assert.Single(_insertedBatches);
-        Assert.Equal<string>(["u1", "u2"], batch.Select(r => r.ChangeToken)); // u3: document no longer exists, nothing to record
-        Assert.All(batch, r => Assert.Equal(new BsonDocument("Products", new BsonArray { new BsonDocument("Status", "OK") }), r.Data));
+        Assert.Equal<string>(["u1", "u2", "u3"], batch.Select(r => r.ChangeToken));
+        Assert.All(batch.Take(2), r => Assert.Equal(new BsonDocument("Products", new BsonArray { new BsonDocument("Status", "OK") }), r.Data));
+        // u3: the document no longer exists, so only the top-level values of the update description are recorded.
+        Assert.Equal(new BsonDocument("Total", 1), batch[2].Data);
     }
 
     [Fact]
@@ -414,9 +416,10 @@ public class MongoHistoryProcessorTests
         await CreateSut().RunAsync(CancellationToken.None);
 
         _source.Verify(o => o.FindAsync(It.IsAny<FilterDefinition<BsonDocument>>(), It.IsAny<FindOptions<BsonDocument, BsonDocument>>(), It.IsAny<CancellationToken>()), Times.Once);
-        var row = Assert.Single(Assert.Single(_insertedBatches));
-        Assert.Equal(id, row.EntityId);
-        Assert.Equal(new BsonDocument("Status", "OK"), row.Data);
+        // otherId no longer exists: its row comes from the update description alone.
+        var rows = Assert.Single(_insertedBatches);
+        Assert.Equal([id, otherId], rows.Select(r => r.EntityId));
+        Assert.All(rows, r => Assert.Equal(new BsonDocument("Status", "OK"), r.Data));
     }
 
     [Fact]

@@ -31,10 +31,7 @@ public sealed class HistoryMapper
 
     private HistoryEntry? MapModification(ChangeEvent change)
     {
-        if (change.After is null)
-            return null;
-
-        if (change.Before is not null)
+        if (change.Before is not null && change.After is not null)
         {
             var (changed, removed) = Diff(change.Before, change.After);
             return changed.ElementCount == 0 && removed.Count == 0
@@ -42,38 +39,63 @@ public sealed class HistoryMapper
                 : ChangedRow(change, change.After, changed, removed);
         }
 
-        return change.Operation == ChangeStreamOperationType.Replace
-            ? NewRow(change, HistoryTypes.Snapshot, Filter(change.After))
-            : MapUpdateWithoutBefore(change, change.After);
+        if (change.Operation == ChangeStreamOperationType.Replace)
+            return change.After is null ? null : NewRow(change, HistoryTypes.Snapshot, Filter(change.After));
+
+        return MapUpdateWithoutBefore(change);
     }
 
-    private HistoryEntry? MapUpdateWithoutBefore(ChangeEvent change, BsonDocument after)
+    // Top-level values and removals come from the update description, exact at event time. A nested path or a
+    // truncated array only names its top-level field, whose value is read from After: the post-image, or the current
+    // document (which can already carry later changes). Without After, those fields are left out of the row.
+    private HistoryEntry? MapUpdateWithoutBefore(ChangeEvent change)
     {
-        var names = new HashSet<string>(StringComparer.Ordinal);
+        var changed = new SortedDictionary<string, BsonValue>(StringComparer.Ordinal);
+        var removed = new SortedSet<string>(StringComparer.Ordinal);
+        var nested = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var key in change.UpdatedFields?.Names ?? Enumerable.Empty<string>())
-            names.Add(TopLevel(key));
-        foreach (var key in change.TruncatedArrayFieldNames ?? Array.Empty<string>())
-            names.Add(TopLevel(key));
-
-        var changed = new BsonDocument();
-        foreach (var name in names.OrderBy(n => n, StringComparer.Ordinal))
+        foreach (var element in change.UpdatedFields ?? new BsonDocument())
         {
-            if (!CountsAsChange(name) || !after.TryGetValue(name, out var value))
-                continue;
-            changed[name] = value;
+            if (IsNested(element.Name))
+                nested.Add(TopLevel(element.Name));
+            else if (CountsAsChange(element.Name))
+                changed[element.Name] = element.Value;
         }
 
-        var removed = (change.RemovedFieldNames ?? Array.Empty<string>())
-            .Select(TopLevel)
-            .Where(n => CountsAsChange(n) && !after.Contains(n))
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(n => n, StringComparer.Ordinal)
-            .ToList();
+        foreach (var name in change.RemovedFieldNames ?? Array.Empty<string>())
+        {
+            if (IsNested(name))
+                nested.Add(TopLevel(name));
+            else if (CountsAsChange(name))
+                removed.Add(name);
+        }
 
-        return changed.ElementCount == 0 && removed.Count == 0
-            ? null
-            : ChangedRow(change, after, changed, removed);
+        foreach (var name in change.TruncatedArrayFieldNames ?? Array.Empty<string>())
+            nested.Add(TopLevel(name));
+
+        var after = change.After;
+        foreach (var name in nested.Where(n => after is not null && CountsAsChange(n) && !changed.ContainsKey(n)))
+        {
+            if (after!.TryGetValue(name, out var value))
+                changed[name] = value;
+            else
+                removed.Add(name);
+        }
+
+        if (changed.Count == 0 && removed.Count == 0)
+            return null;
+
+        var delta = new BsonDocument(changed.Select(c => new BsonElement(c.Key, c.Value)));
+        if (!_storeFullDocument || after is null)
+            return NewRow(change, HistoryTypes.Changed, delta, removed.ToList());
+
+        // The whole document at event time, as far as it is known: After with the exact top-level values on top.
+        var data = Filter(after);
+        foreach (var element in delta)
+            data[element.Name] = element.Value;
+        foreach (var name in removed)
+            data.Remove(name);
+        return NewRow(change, HistoryTypes.Changed, data, removed.ToList(), changed.Keys.ToList());
     }
 
     /// <summary>Changed fields (new values) and removed fields between two versions, honouring the options.</summary>
@@ -105,6 +127,8 @@ public sealed class HistoryMapper
         name != "_id" && (_trackedFields.Count == 0 || _trackedFields.Contains(name));
 
     private bool CountsAsChange(string name) => IsStored(name) && !_ignoredFields.Contains(name);
+
+    private static bool IsNested(string path) => path.Contains('.');
 
     private static string TopLevel(string path)
     {

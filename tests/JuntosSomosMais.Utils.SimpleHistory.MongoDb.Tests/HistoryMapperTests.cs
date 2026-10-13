@@ -105,12 +105,13 @@ public class HistoryMapperTests
     }
 
     [Fact]
-    public void Map_WhenUpdateWithoutBefore_ShouldBuildDeltaFromUpdateDescription()
+    public void Map_WhenUpdateWithoutBefore_ShouldTakeTopLevelValuesFromTheDescriptionAndNestedOnesFromAfter()
     {
+        // After is the current document, already changed again: StatusOrder moved on to SHIPPED.
         var after = new BsonDocument
         {
             { "_id", EntityId },
-            { "StatusOrder", "PAID" },
+            { "StatusOrder", "SHIPPED" },
             { "Products", new BsonArray { new BsonDocument("Status", "OK") } },
         };
         var updated = new BsonDocument { { "Products.0.Status", "OK" }, { "StatusOrder", "PAID" } };
@@ -127,8 +128,9 @@ public class HistoryMapperTests
     }
 
     [Fact]
-    public void Map_WhenUpdateWithoutBefore_ShouldUseTruncatedArraysAndFilterRemovedAgainstAfter()
+    public void Map_WhenUpdateWithoutBefore_ShouldKeepTopLevelRemovalsAndResolveNestedPathsAgainstAfter()
     {
+        // Back was removed by this event and added again later; Gone was removed later; Items was truncated.
         var after = new BsonDocument { { "_id", EntityId }, { "Items", new BsonArray { 1 } }, { "Back", "again" } };
 
         var row = Mapper.Map(Event(
@@ -141,7 +143,33 @@ public class HistoryMapperTests
 
         Assert.NotNull(row);
         Assert.Equal(new BsonDocument { { "Items", new BsonArray { 1 } } }, row!.Data);
-        Assert.Equal<string>(["Gone"], row.RemovedFields);
+        Assert.Equal<string>(["Back", "Gone"], row.RemovedFields);
+    }
+
+    [Fact]
+    public void Map_WhenUpdateHasNeitherBeforeNorAfter_ShouldRecordTheTopLevelChangesOfTheDescription()
+    {
+        // The document was deleted before its current version could be loaded.
+        var row = Mapper.Map(Event(
+            ChangeStreamOperationType.Update,
+            updatedFields: new BsonDocument { { "StatusOrder", "PAID" }, { "Products.0.Status", "OK" } },
+            removed: ["Coupon"]));
+
+        Assert.NotNull(row);
+        Assert.Equal("~", row!.HistoryType);
+        Assert.Equal(new BsonDocument("StatusOrder", "PAID"), row.Data);
+        Assert.Equal<string>(["Coupon"], row.RemovedFields);
+    }
+
+    [Fact]
+    public void Map_WhenUpdateHasNeitherBeforeNorAfterAndOnlyNestedChanges_ShouldReturnNull()
+    {
+        var row = Mapper.Map(Event(
+            ChangeStreamOperationType.Update,
+            updatedFields: new BsonDocument("Products.0.Status", "OK"),
+            truncatedArrays: ["Items"]));
+
+        Assert.Null(row);
     }
 
     [Fact]
@@ -284,7 +312,8 @@ public class HistoryMapperTests
     [Fact]
     public void Map_InFullMode_WhenUpdateWithoutBefore_ShouldStoreWholeDocumentAndChangedFieldsFromTheDescription()
     {
-        var after = new BsonDocument { { "_id", EntityId }, { "StatusOrder", "PAID" }, { "Total", 10 }, { "Items", new BsonArray { 1 } } };
+        // After already carries a later StatusOrder: the row keeps the value of this event.
+        var after = new BsonDocument { { "_id", EntityId }, { "StatusOrder", "SHIPPED" }, { "Total", 10 }, { "Items", new BsonArray { 1 } } };
 
         var row = FullMapper.Map(Event(
             ChangeStreamOperationType.Update,
@@ -311,6 +340,16 @@ public class HistoryMapperTests
         Assert.Empty(row.ChangedFields);
         Assert.Equal<string>(["Gone"], row.RemovedFields);
         Assert.Equal(new BsonDocument("StatusOrder", "PAID"), row.Data);
+    }
+
+    [Fact]
+    public void Map_InFullMode_WhenUpdateHasNeitherBeforeNorAfter_ShouldFallBackToADeltaRow()
+    {
+        var row = FullMapper.Map(Event(ChangeStreamOperationType.Update, updatedFields: new BsonDocument("StatusOrder", "PAID")));
+
+        Assert.Equal("~", row!.HistoryType);
+        Assert.Equal(new BsonDocument("StatusOrder", "PAID"), row.Data);
+        Assert.Null(row.ChangedFields);
     }
 
     [Fact]
