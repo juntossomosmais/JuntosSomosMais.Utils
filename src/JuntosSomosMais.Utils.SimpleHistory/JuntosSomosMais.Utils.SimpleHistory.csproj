@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>JuntosSomosMais.Utils.SimpleHistory</RootNamespace>
+    <Description>Provider-neutral core of SimpleHistory (a django-simple-history analogue for .NET): options, tracked-source builder, hosted service with retry and backoff, and the contracts a database provider implements.</Description>
+    <PackageId>JuntosSomosMais.Utils.SimpleHistory</PackageId>
+    <PackageTags>history audit changetracking django-simple-history</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <MinVerTagPrefix>simplehistory/v</MinVerTagPrefix>
+    <TargetFramework></TargetFramework>
+    <TargetFrameworks>net6.0;net8.0</TargetFrameworks>
+    <LangVersion>12</LangVersion>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="JuntosSomosMais.Utils.SimpleHistory.Tests" />
+    <InternalsVisibleTo Include="JuntosSomosMais.Utils.SimpleHistory.MongoDb" />
+    <InternalsVisibleTo Include="JuntosSomosMais.Utils.SimpleHistory.MongoDb.Tests" />
+    <!-- Moq builds its proxies of the internal contracts in this assembly. -->
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net6.0'">
+    <!-- TimeProvider is in the BCL from .NET 8; this is its official package for older targets. -->
+    <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="8.0.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

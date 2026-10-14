@@ -8,6 +8,7 @@ Each package is versioned independently. The git tag is the version — MinVer r
 | `JuntosSomosMais.Utils.HealthChecks` | `healthchecks/v` |
 | `JuntosSomosMais.Utils.Instrumentation` | `instrumentation/v` |
 | `JuntosSomosMais.Utils.Cnpj` | `cnpj/v` |
+| `JuntosSomosMais.Utils.SimpleHistory` and `JuntosSomosMais.Utils.SimpleHistory.MongoDb` | `simplehistory/v` |
 
 ## Release
 
@@ -18,6 +19,8 @@ git push origin healthchecks/v0.2.0
 ```
 
 Watch the `Publish package` workflow in the Actions tab. To release several packages from the same commit, push several tags. There is no "release all" tag.
+
+The two SimpleHistory packages share the `simplehistory/v` tag: one tag publishes both with the same version, so the MongoDB provider always depends on a published core.
 
 ## Version rules
 

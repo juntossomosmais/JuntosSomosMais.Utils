@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>JuntosSomosMais.Utils.SimpleHistory.MongoDb</RootNamespace>
+    <Description>MongoDB provider of SimpleHistory: change stream based history for MongoDB collections (a django-simple-history analogue), delta rows per tracked collection, each with its own history collection.</Description>
+    <PackageId>JuntosSomosMais.Utils.SimpleHistory.MongoDb</PackageId>
+    <PackageTags>history audit changetracking changestreams mongodb django-simple-history</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <MinVerTagPrefix>simplehistory/v</MinVerTagPrefix>
+    <TargetFramework></TargetFramework>
+    <TargetFrameworks>net6.0;net8.0</TargetFrameworks>
+    <LangVersion>12</LangVersion>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="JuntosSomosMais.Utils.SimpleHistory.MongoDb.Tests" />
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Built against the 2.x line, which ships MongoDB.Driver.Core as its own assembly; 3.0 merged it into
+         MongoDB.Driver, so this build would fail to load there. The upper bound makes NuGet warn at install time. -->
+    <PackageReference Include="MongoDB.Driver" Version="[2.29.0,3.0.0)" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+    <!-- MongoDB.Driver 2.29.0 resolves Snappier 1.0.0, affected by CVE-2026-44302 (infinite loop on malformed
+         snappy frames). Pinned to the fixed version until the driver floor moves past it. -->
+    <PackageReference Include="Snappier" Version="1.3.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\JuntosSomosMais.Utils.SimpleHistory\JuntosSomosMais.Utils.SimpleHistory.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

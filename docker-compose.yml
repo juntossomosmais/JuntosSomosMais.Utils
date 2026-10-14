@@ -1,8 +1,29 @@
 services:
+  # Single-node replica set: the SimpleHistory.MongoDb integration tests need change streams.
+  mongo:
+    image: mongo:8.0
+    command: [ "--replSet", "rs0", "--bind_ip_all" ]
+    healthcheck:
+      # Initiates the replica set on the first run, then reports healthy once this node is the primary.
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "try { rs.status() } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }) }; quit(db.hello().isWritablePrimary ? 0 : 1)"
+      interval: 5s
+      timeout: 10s
+      retries: 20
+
   integration-tests:
     build:
       context: .
       dockerfile: Dockerfile
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__ConnectionString: mongodb://mongo:27017/?directConnection=true
     command: [ "./scripts/start-tests.sh" ]
 
   lint-formatter:
