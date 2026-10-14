@@ -99,9 +99,9 @@ carry host names; the full exception is logged):
 comparison between machines, and it covers a setup that keeps failing, a stream that cannot be opened and a hung
 cursor.
 
-A **gap** (the saved position fell out of the change feed, so the stream restarted from now) is recorded by the
+A **gap** (the saved position fell out of the change feed, so the stream restarted from the end of the window) is recorded by the
 provider and marked on the state as a `HistoryGap` (`FromUtc`: when the lost position was saved, null when unknown;
-`ToUtc`: when the stream restarted). With no stale source, a gap that ended less than `GapReportedFor` ago makes the
+`ToUtc`: where the stream picked up again). With no stale source, a gap that ended less than `GapReportedFor` ago makes the
 check **Degraded**, whatever the registration's failure status:
 `myOrders: changes between 2026-10-06T07:00:00.0000000Z and 2026-10-06T10:00:00.0000000Z were not recorded`.
 Degraded and not Unhealthy on purpose: the stream is running again, and failing a liveness probe would only restart

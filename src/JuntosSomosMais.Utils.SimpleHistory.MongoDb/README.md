@@ -239,13 +239,14 @@ the `-` form a new chain and `Rebuild` yields the re-inserted document.
 - **Gap risk.** If the consumer is down longer than the oplog window / pre-image retention, the stream cannot resume
   (error 286). In one atomic update of the checkpoint document, the token is cleared (only if it is still the one
   this run started from or last saved, so a stale consumer never wipes a newer position) and the missed window is
-  recorded as `LastGap: { FromUtc, ToUtc }`: from the `SavedAt` of the lost token to the server's now. The stream
-  restarts from now; the changes of that window are not in the history and must be reconciled from the source. The
-  gap is logged at error level with both bounds, and the health check reports Degraded for `GapReportedFor` (it reads
-  `LastGap` again after a restart). To acknowledge it sooner, `$unset` `LastGap` and restart the worker. This is the
-  only case that restarts from now: when the stream closes by itself (an `invalidate`
-  after a drop or rename of the tracked collection) the token saved with that batch is kept and the next run resumes
-  from it with `StartAfter`.
+  recorded as `LastGap: { FromUtc, ToUtc }`: from the `SavedAt` of the lost token to the server's now. The same
+  update saves the cluster time as `RestartAt`, and the next run opens the stream there with `StartAtOperationTime`,
+  so nothing written during the retry delay is lost; the next saved token clears it. The changes of the window are
+  not in the history and must be reconciled from the source. The gap is logged at error level with both bounds, and
+  the health check reports Degraded for `GapReportedFor` (it reads `LastGap` again after a restart). To acknowledge
+  it sooner, `$unset` `LastGap` and restart the worker. This is the only case that skips changes: when the stream
+  closes by itself (an `invalidate` after a drop or rename of the tracked collection) the token saved with that batch
+  is kept and the next run resumes from it with `StartAfter`.
 - **Pre-image retention.** Pre-images cost storage and oplog size. Bound them with
   `db.adminCommand({ setClusterParameter: { changeStreamOptions: { preAndPostImages: { expireAfterSeconds: 3600 } } } })`
   (some managed tiers restrict it).

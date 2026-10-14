@@ -288,6 +288,21 @@ public class MongoHistoryProcessorIntegrationTests : MongoTestBase
     }
 
     [Fact]
+    public async Task ChangesBetweenAGapAndTheNextRun_ShouldBeRecorded()
+    {
+        var lost = (await _checkpoints.GetResumeTokenAsync(CancellationToken.None))!;
+        await _checkpoints.RecordGapAsync(lost, null, CancellationToken.None);
+        var order = NewOrder(ObjectId.GenerateNewId());
+        await Orders.InsertOneAsync(order);
+
+        Start();
+
+        var row = Assert.Single(await WaitForRowsAsync(1));
+        Assert.Equal(order["_id"], row.EntityId);
+        await WaitForAsync(() => _checkpoints.GetRestartAtAsync(CancellationToken.None), restartAt => restartAt is null);
+    }
+
+    [Fact]
     public async Task IdleCollection_ShouldAdvanceSavedPosition()
     {
         var before = (await _checkpoints.GetResumeTokenAsync(CancellationToken.None))!;

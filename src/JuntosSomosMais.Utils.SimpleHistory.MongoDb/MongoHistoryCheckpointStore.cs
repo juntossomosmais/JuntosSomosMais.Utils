@@ -5,12 +5,13 @@ namespace JuntosSomosMais.Utils.SimpleHistory.MongoDb;
 
 /// <summary>
 /// Resume token of one tracked collection, in one document of the shared checkpoint collection:
-/// { _id = checkpoint id, ResumeToken, SavedAt, LastGap: { FromUtc, ToUtc } }.
+/// { _id = checkpoint id, ResumeToken, SavedAt, RestartAt, LastGap: { FromUtc, ToUtc } }.
 /// </summary>
 internal class MongoHistoryCheckpointStore : IHistoryCheckpointStore
 {
     private const string ResumeTokenField = "ResumeToken";
     private const string SavedAtField = "SavedAt";
+    private const string RestartAtField = "RestartAt";
     private const string LastGapField = "LastGap";
     private const string GapFromField = "FromUtc";
     private const string GapToField = "ToUtc";
@@ -29,14 +30,21 @@ internal class MongoHistoryCheckpointStore : IHistoryCheckpointStore
     }
 
     /// <inheritdoc />
-    public async Task<BsonDocument?> GetResumeTokenAsync(CancellationToken cancellationToken)
+    public async Task<HistoryCheckpoint> GetCheckpointAsync(CancellationToken cancellationToken)
     {
         var document = await _collection
             .Find(new BsonDocument("_id", _documentId))
             .FirstOrDefaultAsync(cancellationToken);
-        return document is not null && document.TryGetValue(ResumeTokenField, out var token) && token.IsBsonDocument
-            ? token.AsBsonDocument
+        if (document is null)
+            return HistoryCheckpoint.Empty;
+
+        var token = document.TryGetValue(ResumeTokenField, out var tokenValue) && tokenValue.IsBsonDocument
+            ? tokenValue.AsBsonDocument
             : null;
+        var restartAt = document.TryGetValue(RestartAtField, out var time) && time.IsBsonTimestamp
+            ? time.AsBsonTimestamp
+            : null;
+        return new HistoryCheckpoint(token, restartAt, ReadGap(document));
     }
 
     /// <inheritdoc />
@@ -47,35 +55,39 @@ internal class MongoHistoryCheckpointStore : IHistoryCheckpointStore
             {
                 { "$set", new BsonDocument(ResumeTokenField, resumeToken) },
                 { "$currentDate", new BsonDocument(SavedAtField, true) },
+                { "$unset", new BsonDocument(RestartAtField, "") },
             },
             new UpdateOptions { IsUpsert = true },
             cancellationToken);
 
     /// <inheritdoc />
-    public async Task<HistoryGap?> GetLastGapAsync(CancellationToken cancellationToken)
+    public async Task<HistoryGap?> RecordGapAsync(
+        BsonDocument? expectedToken, BsonTimestamp? expectedRestartAt, CancellationToken cancellationToken)
     {
-        var document = await _collection
-            .Find(new BsonDocument("_id", _documentId))
-            .FirstOrDefaultAsync(cancellationToken);
-        return document is null ? null : ReadGap(document);
-    }
-
-    /// <inheritdoc />
-    public async Task<HistoryGap?> RecordGapAsync(BsonDocument? expectedToken, CancellationToken cancellationToken)
-    {
-        if (expectedToken is null)
+        BsonDocument filter;
+        if (expectedToken is not null)
+            filter = new BsonDocument { ["_id"] = _documentId, [ResumeTokenField] = expectedToken };
+        else if (expectedRestartAt is not null)
+            filter = new BsonDocument
+            {
+                ["_id"] = _documentId,
+                [ResumeTokenField] = new BsonDocument("$exists", false),
+                [RestartAtField] = expectedRestartAt,
+            };
+        else
             return null;
 
-        // One atomic update: the gap starts when the lost token was saved (absent on documents written before
-        // SavedAt existed) and ends at the server's now, the moment the stream restarts from now.
         var update = Builders<BsonDocument>.Update.Pipeline(new[]
         {
-            new BsonDocument("$set", new BsonDocument(
-                LastGapField, new BsonDocument { { GapFromField, "$" + SavedAtField }, { GapToField, "$$NOW" } })),
+            new BsonDocument("$set", new BsonDocument
+            {
+                { LastGapField, new BsonDocument { { GapFromField, "$" + SavedAtField }, { GapToField, "$$NOW" } } },
+                { RestartAtField, "$$CLUSTER_TIME" },
+            }),
             new BsonDocument("$unset", ResumeTokenField),
         });
         var document = await _collection.FindOneAndUpdateAsync(
-            new BsonDocument { ["_id"] = _documentId, [ResumeTokenField] = expectedToken },
+            filter,
             update,
             new FindOneAndUpdateOptions<BsonDocument> { ReturnDocument = ReturnDocument.After },
             cancellationToken);

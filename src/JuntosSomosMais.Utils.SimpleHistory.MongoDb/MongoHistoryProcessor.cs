@@ -57,17 +57,19 @@ internal class MongoHistoryProcessor : IHistoryProcessor
     /// <inheritdoc />
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        var ownToken = await _checkpoints.GetResumeTokenAsync(cancellationToken);
+        var checkpoint = await _checkpoints.GetCheckpointAsync(cancellationToken);
+        var ownToken = checkpoint.ResumeToken;
+        var restartAt = ownToken is null ? checkpoint.RestartAt : null;
 
-        var lastGap = await _checkpoints.GetLastGapAsync(cancellationToken);
-        if (lastGap is not null)
-            _state.MarkGap(lastGap.FromUtc, lastGap.ToUtc);
+        if (checkpoint.LastGap is not null)
+            _state.MarkGap(checkpoint.LastGap.FromUtc, checkpoint.LastGap.ToUtc);
 
         var streamOptions = new ChangeStreamOptions
         {
             FullDocument = ChangeStreamFullDocumentOption.WhenAvailable,
             FullDocumentBeforeChange = ChangeStreamFullDocumentBeforeChangeOption.WhenAvailable,
             StartAfter = ownToken,
+            StartAtOperationTime = restartAt,
             MaxAwaitTime = _options.MaxAwaitTime,
             BatchSize = _options.BatchSize,
         };
@@ -100,17 +102,18 @@ internal class MongoHistoryProcessor : IHistoryProcessor
                 {
                     await _checkpoints.SaveResumeTokenAsync(token, cancellationToken);
                     ownToken = token;
+                    restartAt = null;
                     _state.MarkCheckpoint();
                 }
             }
         }
         catch (MongoCommandException ex) when (ex.Code == ChangeStreamHistoryLostCode)
         {
-            var gap = await _checkpoints.RecordGapAsync(ownToken, cancellationToken);
+            var gap = await _checkpoints.RecordGapAsync(ownToken, restartAt, cancellationToken);
             _state.MarkGap(gap?.FromUtc, gap?.ToUtc);
             _logger.LogError(
                 ex,
-                "{SourceName} history gap: resume token no longer in the oplog, restarting from now. Changes between {GapFromUtc} and {GapToUtc} were not recorded",
+                "{SourceName} history gap: resume position no longer in the oplog, restarting from the end of the gap. Changes between {GapFromUtc} and {GapToUtc} were not recorded",
                 _options.SourceName,
                 gap?.FromUtc,
                 _state.LastGap?.ToUtc);
