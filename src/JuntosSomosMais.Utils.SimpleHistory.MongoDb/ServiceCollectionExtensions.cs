@@ -26,8 +26,6 @@ public static class ServiceCollectionExtensions
         Func<IServiceProvider, IMongoDatabase> database,
         Action<MongoHistoryBuilder> configure)
     {
-        // The health check and the purger resolve one HistorySources and one HistoryHealthRegistry: a second call
-        // would leave the sources of the first one out of both.
         if (services.Any(d => d.ServiceType == typeof(HistorySources)))
             throw new InvalidOperationException("AddMongoHistory was already called: track every collection in one call.");
 

@@ -8,8 +8,7 @@ namespace JuntosSomosMais.Utils.SimpleHistory;
 /// source makes the check report the registration's failure status. Covers a setup that keeps failing, a stream that
 /// cannot be opened and a hung cursor, without a database round trip. Otherwise, a source whose last gap ended less
 /// than <see cref="HistoryOptions.GapReportedFor"/> ago makes the check report <see cref="HealthStatus.Degraded"/>,
-/// never a failure: the stream is running again and a restart would not bring the lost changes back. Register it with
-/// <see cref="HealthChecksBuilderExtensions.AddSimpleHistoryHealthCheck"/>.
+/// never a failure. Register it with <see cref="HealthChecksBuilderExtensions.AddSimpleHistoryHealthCheck"/>.
 /// </summary>
 internal sealed class HistoryHealthCheck : IHealthCheck
 {

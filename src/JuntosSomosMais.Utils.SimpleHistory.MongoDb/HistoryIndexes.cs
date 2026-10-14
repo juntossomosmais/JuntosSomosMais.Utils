@@ -11,7 +11,7 @@ internal static class HistoryIndexes
         var keys = Builders<HistoryEntry>.IndexKeys;
         return
         [
-            // One entity's history, newest first, in oplog order (HistoryDate follows the primary's clock).
+            // One entity's history, newest first, in oplog order.
             new(
                 keys.Ascending(e => e.EntityId).Descending(e => e.ChangeToken),
                 new CreateIndexOptions { Name = historyName + "-entity-id-change-token" }),
