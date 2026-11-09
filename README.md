@@ -13,6 +13,21 @@ Opinionated configurations and utilities for .NET projects at Juntos Somos Mais.
 | [JuntosSomosMais.Utils.SimpleHistory](https://www.nuget.org/packages/JuntosSomosMais.Utils.SimpleHistory/) | Provider-neutral core of SimpleHistory, a django-simple-history analogue for .NET: options, tracked-source builder, hosted service, health check and purge command. |
 | [JuntosSomosMais.Utils.SimpleHistory.MongoDb](https://www.nuget.org/packages/JuntosSomosMais.Utils.SimpleHistory.MongoDb/) | MongoDB provider of SimpleHistory: change stream based history rows for MongoDB collections. |
 
+### Target frameworks
+
+Every package ships a build per framework, and NuGet picks the one that matches the consuming app, so an app on .NET 8 keeps getting the `net8.0` build after it updates the package, and an app on .NET 10 gets the `net10.0` one.
+
+| Package | Target frameworks | Notable dependencies |
+|---|---|---|
+| `JuntosSomosMais.Utils.GlobalExceptionHandler` | `net8.0`, `net10.0` | ASP.NET Core shared framework, `FluentValidation` 11+ |
+| `JuntosSomosMais.Utils.HealthChecks` | `net8.0`, `net10.0` | `MongoDB.Driver` **2.x** (see [Requirements](#requirements)), `RabbitMQ.Client` 7, `Microsoft.Data.SqlClient` 5+ |
+| `JuntosSomosMais.Utils.Instrumentation` | `net8.0`, `net10.0` | `FluentValidation` 11+, `JuntosSomosMais.Ziggurat` |
+| `JuntosSomosMais.Utils.Cnpj` | `net8.0`, `net10.0` | none |
+| `JuntosSomosMais.Utils.SimpleHistory` | `net6.0`, `net8.0`, `net10.0` | `Microsoft.Extensions.*` 8.x on `net6.0`/`net8.0`, 10.x on `net10.0` |
+| `JuntosSomosMais.Utils.SimpleHistory.MongoDb` | `net6.0`, `net8.0`, `net10.0` | `MongoDB.Driver` **2.x** (`[2.29.0, 3.0.0)`) |
+
+The test suite runs once per framework (`net8.0` and `net10.0`), so both builds are verified on every pull request.
+
 Install via CLI:
 
 ```bash
@@ -29,8 +44,9 @@ Provides reusable `IHealthCheck` implementations and a standardized JSON respons
 
 ### Requirements
 
-- .NET 8 or later
+- .NET 8 or .NET 10
 - Dependencies are pulled transitively: `Hangfire.Core`, `Microsoft.Data.SqlClient`, `RabbitMQ.Client`, `NRedisStack`, `Azure.Storage.Blobs`, `Azure.Messaging.ServiceBus`, `MongoDB.Driver`
+- `MongoDB.Driver` **2.x**. The package is compiled against the 2.x line, where `MongoDB.Driver.Core` is a separate assembly; 3.0 merged it into `MongoDB.Driver`. A service that references `MongoDB.Driver` 3.x fails with `FileNotFoundException: MongoDB.Driver.Core` as soon as a health check runs, on .NET 8 and .NET 10 alike. Support for 3.x will come as a separate release.
 
 ### Available health checks
 
@@ -115,7 +131,7 @@ Provides two FluentValidation-based validation components that can be shared acr
 
 ### Requirements
 
-- .NET 8 or later
+- .NET 8 or .NET 10
 - `FluentValidation` v11+
 - `JuntosSomosMais.Ziggurat` v0.1.0+ (for message validation)
 
@@ -204,8 +220,8 @@ Catches unhandled exceptions and returns a consistent, user-friendly JSON respon
 
 ### Requirements
 
-- .NET 8 or later
-- ASP.NET Core 8 or later
+- .NET 8 or .NET 10
+- ASP.NET Core 8 or 10
 
 The package includes `FluentValidation` (v11.\*) as a transitive dependency. If your project uses a newer version (e.g., v12.x), keep your direct `FluentValidation` package reference -- NuGet will resolve to the higher version automatically without conflicts.
 
@@ -553,11 +569,13 @@ When the attribute is present, `TryHandleAsync` returns `false` and the framewor
 
 ### Logging
 
-Every handled exception is logged at `Error` level via `ILogger<CustomExceptionHandler>`. The log message includes:
+Every handled exception is logged via `ILogger<CustomExceptionHandler>`: at `Error` level when the response status is 5xx, and at `Debug` level for 4xx responses and FluentValidation errors. The log message includes:
 
 - `TraceId` — the request trace identifier
 - `Message` — the exception message
 - The full exception object (stack trace included regardless of `ViewStackTrace`)
+
+The handler's own log is the same on .NET 8 and .NET 10. What changes between them is the framework's `ExceptionHandlerMiddleware`: on .NET 8 it logs "An unhandled exception has occurred while executing the request." at `Error` level *before* calling the handlers, so services set `"Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware": "Fatal"` in the Serilog `MinimumLevel.Override` to keep 4xx responses out of the error logs. On .NET 10 the middleware no longer writes that entry when a handler returns `true`. Keep the override when moving a service to .NET 10, so the error logs stay the same during and after the migration.
 
 ### Full example
 
@@ -641,7 +659,7 @@ Validates Brazilian CNPJs in both the classic all-numeric format and the new alp
 
 ### Requirements
 
-- .NET 8 or later
+- .NET 8 or .NET 10
 - No additional dependencies
 
 ### Available methods

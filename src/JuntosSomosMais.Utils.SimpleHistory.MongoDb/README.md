@@ -16,7 +16,7 @@ The change stream consumer itself (processor, mapper, checkpoint store) is inter
 
 ## Requirements
 
-- .NET 6 or newer: the packages target `net6.0` and `net8.0` (on .NET 6, `TimeProvider` comes from
+- .NET 6 or newer: the packages target `net6.0`, `net8.0` and `net10.0` (on .NET 6, `TimeProvider` comes from
   `Microsoft.Bcl.TimeProvider`).
 - MongoDB.Driver **2.x** (2.29.0 or newer, below 3.0). The package is compiled against the 2.x line, where
   `MongoDB.Driver.Core` is a separate assembly; 3.0 merged it into `MongoDB.Driver`, so on a 3.x consumer this build
