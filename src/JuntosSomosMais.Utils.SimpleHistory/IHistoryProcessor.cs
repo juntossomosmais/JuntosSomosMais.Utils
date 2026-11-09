@@ -7,5 +7,5 @@ internal interface IHistoryProcessor
     /// Consumes the change stream and records history rows. Returns when the stream closes or a gap is detected;
     /// cancellation propagates as OperationCanceledException.
     /// </summary>
-    Task RunAsync(CancellationToken cancellationToken);
+    public Task RunAsync(CancellationToken cancellationToken);
 }
