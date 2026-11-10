@@ -55,9 +55,10 @@ app.MapPost("/orders", handler).WithMetadata(new AuditRequestAttribute());
 | What | Rule |
 |---|---|
 | Headers in `SensitiveHeaders` | Value replaced by `***`. Default: `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, `X-Auth-Token`, `X-Access-Token`, `Api-Key`. |
-| JSON properties (any depth), form fields and query parameters in `SensitiveFields` | Value replaced by `***`. Default: `password`, `secret`, `client_secret`, `token`, `access_token`, `refresh_token`, `cpf`, `email`, `phone`. |
+| JSON properties (any depth), form fields and query parameters in `SensitiveFields` | Value replaced by `***`. Default: `cpf`, `cnpj`, `email`, `phone`, `telefone`, `celular`, `cvv`, `authorization`. |
+| Fields and headers whose name contains one of `SensitiveNameParts` | Value replaced by `***`. Default: `password`, `senha`, `secret`, `token`, `apikey`. |
 
-Header names are compared exactly, ignoring case. Field names are compared on a normalized form, on both sides: the last segment of the key (after the last `.` or `[`, numeric indexes skipped), without `_` and `-`, ignoring case. So `access_token` also masks `accessToken`, `AccessToken` and `access-token`, and `password` also masks the model-bound keys `Input.Password` and `user[password]`. Add your own to either set.
+Header names in `SensitiveHeaders` are compared exactly, ignoring case. Field names, and header names checked against `SensitiveNameParts`, are compared on a normalized form, on both sides: the last segment of the key (after the last `.` or `[`, numeric indexes skipped), without `_` and `-`, ignoring case. So `card_number` also masks `cardNumber` and `Payment.CardNumber`, a field in `SensitiveFields` also masks its plural (`emails`), and the part `token` masks `access_token`, `idToken`, `tokens` and `X-CSRF-Token`. Add your own to any of the sets.
 
 Not masked:
 
@@ -74,7 +75,7 @@ A body is stored only when it can be masked: JSON (`application/json`, `+json`) 
 
 ## Behavior to know
 
-- **The entry is saved after the response is sent** (`Response.OnCompleted`), so the caller does not wait for the store. On HTTP/1.1, the server reads the next request on the same connection only after the save, so a slow store can delay that request, but never longer than `SaveTimeout` (default 5 s): the save is then cancelled and the failure logged.
+- **The entry is saved after the response is sent** (`Response.OnCompleted`), so the caller does not wait for the store. On HTTP/1.1, the server reads the next request on the same connection only after the save, so a slow store can delay that request, but never longer than `SaveTimeout` (default 5 s): the save is then cancelled and the failure logged, even when the store ignores the cancellation.
 - **Auditing never breaks the request.** If the store fails, the error is logged and the response is unaffected.
 - **Responses written by an exception handler are recorded**, also when the handler is placed before this middleware.
 - **The response is never buffered.** It is copied while it is written, up to `MaxBodyBytes`.
@@ -88,9 +89,10 @@ A body is stored only when it can be masked: JSON (`application/json`, `+json`) 
 | `Enabled` | `true` | Turns the auditing on or off. |
 | `MaxBodyBytes` | `32768` | Largest body stored. Must be between 1 and `MaxBodyBytesLimit` (1048576). |
 | `SaveTimeout` | `00:00:05` | Longest wait for the store; the save is then cancelled and logged. Must be positive. |
-| `ClientIpHeader` | `null` | Header holding the caller address behind a proxy. |
+| `ClientIpHeader` | `null` | Header holding the caller address behind a proxy. Stored as received: set it only when the proxy overwrites the header. |
 | `SensitiveHeaders` | see above | Headers masked. |
 | `SensitiveFields` | see above | Fields masked. |
+| `SensitiveNameParts` | see above | Parts of a field or header name that make it masked. |
 | `CallerClaims` | `sub`, `client_id`, `azp` | Claim types copied into `Caller`. |
 
 ## Retention
@@ -108,10 +110,10 @@ return await PurgeRequestAuditCommand.ExecuteAsync(
 | *(none)* | Deletes the entries older than 365 days. |
 | `--older-than-days=<N>` | Deletes the entries older than N days. Cannot be combined with `--from` / `--to`. |
 | `--from=<date>` | Inclusive lower bound on `CreatedAtUtc` (`yyyy-MM-dd` or `yyyy-MM-ddTHH:mm:ssZ`). |
-| `--to=<date>` | Exclusive upper bound. When only `--from` is given, the purge stops at the time it started. |
+| `--to=<date>` | Exclusive upper bound (same formats). When only `--from` is given, the purge stops at the time it started. |
 | `--dry-run` | Only counts what would be deleted. |
 
-The arguments are validated before the purger is created, so bad input never opens a connection. Deletion runs in batches (5000 entries per round trip by default).
+Dates accept a `Z` or an offset (`2026-02-01T03:00:00-03:00`) and neither bound may be in the future. The arguments are validated before the purger is created, so bad input never opens a connection. Deletion runs in batches (5000 entries per round trip by default).
 
 ## Your own store
 

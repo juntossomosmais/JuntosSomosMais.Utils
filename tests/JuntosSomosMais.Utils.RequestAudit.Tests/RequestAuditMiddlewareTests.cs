@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 
 namespace JuntosSomosMais.Utils.RequestAudit.Tests;
 
+// Stryker: the survivor "ContentLength ?? long.MaxValue" -> "long.MaxValue" is equivalent; it only sizes the buffer.
 public class RequestAuditMiddlewareTests
 {
     private const string EchoRoute = "/audited/echo";
@@ -402,8 +403,9 @@ public class RequestAuditMiddlewareTests
         store.VerifyNoOtherCalls();
     }
 
-    [Fact]
-    public async Task InvokeAsync_RequestBodyCannotBeRead_SavesTheEntryWithoutIt()
+    [Theory]
+    [MemberData(nameof(ReadFailures))]
+    public async Task InvokeAsync_RequestBodyCannotBeRead_SavesTheEntryWithoutIt(Exception failure)
     {
         // Arrange
         var options = new RequestAuditOptions { ClientIpHeader = string.Empty };
@@ -419,7 +421,7 @@ public class RequestAuditMiddlewareTests
         context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.4");
         context.Request.Method = "POST";
         context.Request.ContentType = "application/json";
-        context.Request.Body = new BrokenStream();
+        context.Request.Body = new BrokenStream(failure);
         var responseBody = context.Response.Body;
         var middleware = new RequestAuditMiddleware(
             current =>
@@ -535,7 +537,7 @@ public class RequestAuditMiddlewareTests
         var completing = responseFeature.CompleteAsync();
         var cancelledBeforeTimeout = saveToken.IsCancellationRequested;
         timeProvider.Fire();
-        await completing;
+        await completing.WaitAsync(TimeSpan.FromSeconds(10));
         var error = await logs.WaitForErrorAsync<RequestAuditMiddleware>();
 
         // Assert
@@ -546,16 +548,168 @@ public class RequestAuditMiddlewareTests
         Assert.IsAssignableFrom<OperationCanceledException>(error.Exception);
     }
 
+    [Fact]
+    public async Task InvokeAsync_StoreIgnoresTheToken_StopsWaitingAfterSaveTimeout()
+    {
+        // Arrange
+        var timeProvider = new ManualTimerProvider();
+        var logs = new RecordingLoggerProvider();
+        using var loggerFactory = new LoggerFactory([logs]);
+        var store = new Mock<IRequestAuditStore>();
+        store.Setup(s => s.SaveAsync(It.IsAny<RequestAuditEntry>(), It.IsAny<CancellationToken>()))
+            .Returns(new TaskCompletionSource().Task);
+        var responseFeature = new CompletableResponseFeature();
+        var context = new DefaultHttpContext();
+        context.Features.Set<IHttpResponseFeature>(responseFeature);
+        context.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(new AuditRequestAttribute()), "test"));
+        var middleware = new RequestAuditMiddleware(
+            _ => Task.CompletedTask,
+            store.Object,
+            Options.Create(new RequestAuditOptions()),
+            timeProvider,
+            loggerFactory.CreateLogger<RequestAuditMiddleware>());
+        await middleware.InvokeAsync(context);
+
+        // Act
+        var completing = responseFeature.CompleteAsync();
+        var completedBeforeTimeout = completing.IsCompleted;
+        timeProvider.Fire();
+        await completing.WaitAsync(TimeSpan.FromSeconds(10));
+        var error = await logs.WaitForErrorAsync<RequestAuditMiddleware>();
+
+        // Assert
+        Assert.False(completedBeforeTimeout);
+        Assert.IsAssignableFrom<OperationCanceledException>(error.Exception);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ContentLengthOverTheLimit_DoesNotBufferTheRequestBody()
+    {
+        // Arrange
+        var options = new RequestAuditOptions { MaxBodyBytes = 10 };
+        RequestAuditEntry? saved = null;
+        var store = new Mock<IRequestAuditStore>();
+        store.Setup(s => s.SaveAsync(It.IsAny<RequestAuditEntry>(), It.IsAny<CancellationToken>()))
+            .Callback<RequestAuditEntry, CancellationToken>((entry, _) => saved = entry)
+            .Returns(Task.CompletedTask);
+        var responseFeature = new CompletableResponseFeature();
+        var context = new DefaultHttpContext();
+        context.Features.Set<IHttpResponseFeature>(responseFeature);
+        context.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(new AuditRequestAttribute()), "test"));
+        context.Request.Method = "POST";
+        context.Request.ContentType = "application/json";
+        context.Request.ContentLength = 11;
+        var requestBody = new UnknownLengthStream(Encoding.UTF8.GetBytes("""{"k":"abc"}"""));
+        context.Request.Body = requestBody;
+        Stream? requestBodySeen = null;
+        var middleware = new RequestAuditMiddleware(
+            current =>
+            {
+                requestBodySeen = current.Request.Body;
+                return Task.CompletedTask;
+            },
+            store.Object,
+            Options.Create(options),
+            TimeProvider.System,
+            NullLogger<RequestAuditMiddleware>.Instance);
+
+        // Act
+        await middleware.InvokeAsync(context);
+        await responseFeature.CompleteAsync();
+
+        // Assert
+        Assert.Same(requestBody, requestBodySeen);
+        Assert.Equal(0, requestBody.Position);
+        Assert.NotNull(saved);
+        Assert.Equal("Not stored: larger than 10 bytes.", saved.RequestBodyNote);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_CallerClaimListedTwice_SavesItOnce()
+    {
+        // Arrange
+        await using var host = await RequestAuditTestHost.StartAsync(options => options.CallerClaims.Add("sub"));
+        var request = new HttpRequestMessage(HttpMethod.Get, "/audited/secure");
+        request.Headers.TryAddWithoutValidation(RequestAuditTestHost.UserHeader, "user-1");
+
+        // Act
+        var response = await host.Client.SendAsync(request);
+        var entry = await host.Store.WaitForEntryAsync();
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(new Dictionary<string, string> { ["sub"] = "user-1", ["client_id"] = "client-1" }, entry.Caller);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InvokeAsync_EndpointLeavesBytesUnflushedInTheBodyWriter_TheyReachTheCallerAndTheEntry(bool onKestrel)
+    {
+        // Arrange
+        await using var host = await RequestAuditTestHost.StartAsync(onKestrel: onKestrel);
+
+        // Act
+        var response = await host.Client.GetAsync("/audited/pipe");
+        var entry = await host.Store.WaitForEntryAsync();
+
+        // Assert
+        Assert.Equal(RequestAuditTestHost.PipeBody, await response.Content.ReadAsStringAsync());
+        Assert.Equal(RequestAuditTestHost.PipeBody, entry.ResponseBody);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InvokeAsync_EndpointCompletesTheResponse_SavesItWithoutError(bool onKestrel)
+    {
+        // Arrange
+        await using var host = await RequestAuditTestHost.StartAsync(onKestrel: onKestrel);
+
+        // Act
+        var response = await host.Client.GetAsync("/audited/completed");
+        var entry = await host.Store.WaitForEntryAsync();
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(RequestAuditTestHost.PipeBody, await response.Content.ReadAsStringAsync());
+        Assert.Equal(RequestAuditTestHost.PipeBody, entry.ResponseBody);
+        Assert.Empty(host.Logs.Records);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InvokeAsync_EndpointWritesNothing_LeavesTheResponseNotStarted(bool onKestrel)
+    {
+        // Arrange
+        await using var host = await RequestAuditTestHost.StartAsync(onKestrel: onKestrel, withStartCheck: true);
+
+        // Act
+        var response = await host.Client.GetAsync("/audited/empty");
+        await host.Store.WaitForEntryAsync();
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal("true", Assert.Single(response.Headers.GetValues(RequestAuditTestHost.NotStartedHeader)));
+    }
+
     private static StringContent Json(string body) => new(body, Encoding.UTF8, "application/json");
 
-    /// <summary>A body the caller stopped sending.</summary>
-    private sealed class BrokenStream : MemoryStream
+    public static TheoryData<Exception> ReadFailures() => new()
+    {
+        new IOException("The client reset the request stream."),
+        new BadHttpRequestException("Unexpected end of request content."),
+        new InvalidDataException("The request body could not be decompressed."),
+    };
+
+    private sealed class BrokenStream(Exception failure) : MemoryStream
     {
         public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
-            throw new IOException("The client reset the request stream.");
+            throw failure;
 
         public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
-            throw new IOException("The client reset the request stream.");
+            throw failure;
     }
 
     /// <summary>Response feature that runs the completion callbacks when the test says the response was sent.</summary>

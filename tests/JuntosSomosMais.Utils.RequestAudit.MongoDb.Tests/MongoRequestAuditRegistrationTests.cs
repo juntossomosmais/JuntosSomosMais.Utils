@@ -14,6 +14,7 @@ public class MongoRequestAuditRegistrationTests
         var resolutions = 0;
 
         // Act
+        services.AddRequestAudit();
         services.AddMongoRequestAudit(
             _ =>
             {

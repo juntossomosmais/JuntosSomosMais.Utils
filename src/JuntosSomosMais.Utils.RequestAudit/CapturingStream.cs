@@ -53,19 +53,10 @@ internal sealed class CapturingStream(Stream inner, int limit) : Stream
         return inner.WriteAsync(buffer, cancellationToken);
     }
 
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-            _captured.Dispose();
-
-        base.Dispose(disposing);
-    }
-
     private void Capture(ReadOnlySpan<byte> data)
     {
         _total += data.Length;
         var room = limit - (int)_captured.Length;
-        if (room > 0)
-            _captured.Write(data[..Math.Min(room, data.Length)]);
+        _captured.Write(data[..Math.Clamp(room, 0, data.Length)]);
     }
 }

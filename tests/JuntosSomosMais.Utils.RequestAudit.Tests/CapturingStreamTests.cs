@@ -61,6 +61,21 @@ public class CapturingStreamTests
     }
 
     [Fact]
+    public async Task Flush_BothForms_FlushTheInnerStream()
+    {
+        // Arrange
+        using var inner = new FlushCountingStream();
+        using var stream = new CapturingStream(inner, limit: 1);
+
+        // Act
+        stream.Flush();
+        await stream.FlushAsync();
+
+        // Assert
+        Assert.Equal((1, 1), (inner.Flushes, inner.AsyncFlushes));
+    }
+
+    [Fact]
     public void Dispose_LeavesTheInnerStreamOpen()
     {
         // Arrange
@@ -72,5 +87,19 @@ public class CapturingStreamTests
 
         // Assert
         Assert.True(inner.CanWrite);
+    }
+
+    private sealed class FlushCountingStream : MemoryStream
+    {
+        public int Flushes { get; private set; }
+        public int AsyncFlushes { get; private set; }
+
+        public override void Flush() => Flushes++;
+
+        public override Task FlushAsync(CancellationToken cancellationToken)
+        {
+            AsyncFlushes++;
+            return Task.CompletedTask;
+        }
     }
 }

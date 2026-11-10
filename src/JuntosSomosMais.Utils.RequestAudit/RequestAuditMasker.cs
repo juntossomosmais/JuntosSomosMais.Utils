@@ -18,10 +18,15 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
     private readonly HashSet<string> _sensitiveFields =
         options.SensitiveFields.Select(NormalizeFieldName).ToHashSet(StringComparer.Ordinal);
 
+    private readonly string[] _sensitiveParts =
+        options.SensitiveNameParts.Select(NormalizeFieldName).Where(part => part.Length > 0).Distinct().ToArray();
+
     internal Dictionary<string, string> MaskHeaders(IEnumerable<KeyValuePair<string, StringValues>> headers) =>
         headers.ToDictionary(
             pair => pair.Key,
-            pair => options.SensitiveHeaders.Contains(pair.Key) ? Mask : pair.Value.ToString(),
+            pair => options.SensitiveHeaders.Contains(pair.Key) || ContainsSensitivePart(NormalizeFieldName(pair.Key))
+                ? Mask
+                : pair.Value.ToString(),
             StringComparer.OrdinalIgnoreCase);
 
     internal Dictionary<string, string> MaskFields(IEnumerable<KeyValuePair<string, StringValues>> fields) =>
@@ -62,7 +67,16 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
         return normalized.ToString();
     }
 
-    private bool IsSensitiveField(string name) => _sensitiveFields.Contains(NormalizeFieldName(name));
+    private bool IsSensitiveField(string name)
+    {
+        var normalized = NormalizeFieldName(name);
+        return _sensitiveFields.Contains(normalized)
+               || (normalized.EndsWith('s') && _sensitiveFields.Contains(normalized[..^1]))
+               || ContainsSensitivePart(normalized);
+    }
+
+    private bool ContainsSensitivePart(string normalized) =>
+        _sensitiveParts.Any(part => normalized.Contains(part, StringComparison.Ordinal));
 
     private (string? Body, string? Note) MaskJson(byte[] body)
     {

@@ -52,15 +52,16 @@ public class RequestAuditMaskerTests
     public void MaskFields_SensitiveField_MasksOnlyItsValue()
     {
         // Arrange
-        var query = new Dictionary<string, StringValues> { ["Token"] = "abc", ["page"] = "2", ["authorization"] = "kept" };
+        var query = new Dictionary<string, StringValues> { ["Token"] = "abc", ["page"] = "2", ["authorization"] = "Bearer x" };
 
         // Act
         var masked = Masker.MaskFields(query);
 
         // Assert
         Assert.Equal(
-            new Dictionary<string, string> { ["Token"] = "***", ["page"] = "2", ["authorization"] = "kept" },
+            new Dictionary<string, string> { ["Token"] = "***", ["page"] = "2", ["authorization"] = "***" },
             masked);
+        Assert.Equal("2", masked["PAGE"]);
     }
 
     [Fact]
@@ -176,16 +177,43 @@ public class RequestAuditMaskerTests
     }
 
     [Fact]
-    public void MaskHeaders_SensitiveHeaderNameThatOnlyLooksAlike_IsNotMasked()
+    public void MaskHeaders_NameOnlyResemblingASensitiveHeader_IsNotMasked()
     {
         // Arrange
-        var headers = new Dictionary<string, StringValues> { ["X_Api_Key"] = "kept", ["Request.Authorization"] = "kept" };
+        var headers = new Dictionary<string, StringValues> { ["Request.Authorization"] = "kept", ["X-Request-Id"] = "kept" };
 
         // Act
         var masked = Masker.MaskHeaders(headers);
 
         // Assert
-        Assert.Equal(new Dictionary<string, string> { ["X_Api_Key"] = "kept", ["Request.Authorization"] = "kept" }, masked);
+        Assert.Equal(new Dictionary<string, string> { ["Request.Authorization"] = "kept", ["X-Request-Id"] = "kept" }, masked);
+    }
+
+    [Fact]
+    public void MaskHeaders_NameContainingASensitivePart_IsMasked()
+    {
+        // Arrange
+        var headers = new Dictionary<string, StringValues>
+        {
+            ["X_Api_Key"] = "a",
+            ["X-Client-Secret"] = "b",
+            ["X-CSRF-Token"] = "c",
+            ["Accept"] = "application/json",
+        };
+
+        // Act
+        var masked = Masker.MaskHeaders(headers);
+
+        // Assert
+        Assert.Equal(
+            new Dictionary<string, string>
+            {
+                ["X_Api_Key"] = "***",
+                ["X-Client-Secret"] = "***",
+                ["X-CSRF-Token"] = "***",
+                ["Accept"] = "application/json",
+            },
+            masked);
     }
 
     [Theory]
@@ -199,13 +227,13 @@ public class RequestAuditMaskerTests
     public void MaskBody_JsonPropertyInAnotherNamingConvention_IsMasked(string name)
     {
         // Arrange
-        var body = Bytes($$"""{"{{name}}":"x","nested":{"{{name}}":"y"},"accessTokenType":"Bearer"}""");
+        var body = Bytes($$"""{"{{name}}":"x","nested":{"{{name}}":"y"},"accessType":"Bearer"}""");
 
         // Act
         var result = Masker.MaskBody("application/json", body, truncated: false);
 
         // Assert
-        Assert.Equal(($$"""{"{{name}}":"***","nested":{"{{name}}":"***"},"accessTokenType":"Bearer"}""", null), result);
+        Assert.Equal(($$"""{"{{name}}":"***","nested":{"{{name}}":"***"},"accessType":"Bearer"}""", null), result);
     }
 
     [Fact]
@@ -219,7 +247,7 @@ public class RequestAuditMaskerTests
 
         // Assert
         Assert.Equal(
-            ("""{"Input.Password":"***","user[password]":"***","user[name]":"n","phones[0]":"1","Input.UserName":"u"}""", null),
+            ("""{"Input.Password":"***","user[password]":"***","user[name]":"n","phones[0]":"***","Input.UserName":"u"}""", null),
             result);
     }
 
@@ -247,7 +275,7 @@ public class RequestAuditMaskerTests
             {
                 ["filter.email"] = "***",
                 ["filter[Email]"] = "***",
-                ["emails[0]"] = "a@b.c",
+                ["emails[0]"] = "***",
                 ["email[0]"] = "***",
                 ["contact.phone[]"] = "***",
                 ["filter.name"] = "n",
@@ -285,11 +313,74 @@ public class RequestAuditMaskerTests
     }
 
     [Theory]
+    [InlineData("newPassword")]
+    [InlineData("confirm_password")]
+    [InlineData("senhaAtual")]
+    [InlineData("apiKey")]
+    [InlineData("id_token")]
+    [InlineData("tokens")]
+    [InlineData("clientSecret")]
+    [InlineData("cnpj")]
+    [InlineData("telefone")]
+    [InlineData("celular")]
+    [InlineData("cvv")]
+    [InlineData("cpfs")]
+    [InlineData("Phones")]
+    public void MaskFields_DefaultSensitiveName_IsMasked(string name)
+    {
+        // Arrange
+        var fields = new Dictionary<string, StringValues> { [name] = "value" };
+
+        // Act
+        var masked = Masker.MaskFields(fields);
+
+        // Assert
+        Assert.Equal("***", masked[name]);
+    }
+
+    [Theory]
+    [InlineData("address")]
+    [InlineData("status")]
+    [InlineData("s")]
+    [InlineData("name")]
+    public void MaskFields_NameEndingInSWithoutASensitiveSingular_IsKept(string name)
+    {
+        // Arrange
+        var fields = new Dictionary<string, StringValues> { [name] = "value" };
+
+        // Act
+        var masked = Masker.MaskFields(fields);
+
+        // Assert
+        Assert.Equal("value", masked[name]);
+    }
+
+    [Fact]
+    public void MaskFields_CustomSensitiveNameParts_ReplaceTheDefaultsAndIgnoreEmptyParts()
+    {
+        // Arrange
+        _options.SensitiveNameParts.Clear();
+        _options.SensitiveNameParts.Add("Pin");
+        _options.SensitiveNameParts.Add("-");
+        _options.SensitiveNameParts.Add(string.Empty);
+        var fields = new Dictionary<string, StringValues> { ["cardPin"] = "1", ["newPassword"] = "2", ["name"] = "3" };
+
+        // Act
+        var masked = Masker.MaskFields(fields);
+
+        // Assert
+        Assert.Equal(
+            new Dictionary<string, string> { ["cardPin"] = "***", ["newPassword"] = "2", ["name"] = "3" },
+            masked);
+    }
+
+    [Theory]
     [InlineData("access_token", "accesstoken")]
     [InlineData("Input.Password", "password")]
     [InlineData("user[password]", "password")]
     [InlineData("user[phones][0]", "phones")]
     [InlineData("items[0]", "items")]
+    [InlineData("items[2fa]", "2fa")]
     [InlineData("0", "0")]
     [InlineData("", "")]
     public void NormalizeFieldName_Key_KeepsTheLastNamedSegment(string name, string expected)

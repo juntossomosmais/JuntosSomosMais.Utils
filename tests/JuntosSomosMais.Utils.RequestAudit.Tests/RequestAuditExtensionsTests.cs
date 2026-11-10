@@ -30,8 +30,11 @@ public class RequestAuditExtensionsTests
             },
             options.SensitiveHeaders.Order(StringComparer.Ordinal));
         Assert.Equal(
-            new[] { "access_token", "client_secret", "cpf", "email", "password", "phone", "refresh_token", "secret", "token" },
+            new[] { "authorization", "celular", "cnpj", "cpf", "cvv", "email", "phone", "telefone" },
             options.SensitiveFields.Order(StringComparer.Ordinal));
+        Assert.Equal(
+            new[] { "apikey", "password", "secret", "senha", "token" },
+            options.SensitiveNameParts.Order(StringComparer.Ordinal));
         Assert.Same(TimeProvider.System, provider.GetRequiredService<TimeProvider>());
     }
 

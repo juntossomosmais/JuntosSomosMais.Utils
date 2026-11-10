@@ -29,7 +29,9 @@ public sealed class MongoRequestAuditPurger(
                 to is null ? "FromUtc must be before the start of the purge." : "FromUtc must be before ToUtc.", nameof(request));
 
         options.Validate();
-        var collection = database.GetCollection<BsonDocument>(options.CollectionName);
+        var collection = database
+            .GetCollection<BsonDocument>(options.CollectionName)
+            .WithReadPreference(ReadPreference.Primary);
         var filter = BuildFilter(from, pinnedTo);
         if (request.DryRun)
         {
@@ -41,7 +43,6 @@ public sealed class MongoRequestAuditPurger(
         return new RequestAuditPurgeResult(deleted, deleted, false, pinnedTo);
     }
 
-    // Deletes by batches of ids.
     private static async Task<long> DeleteInBatchesAsync(
         IMongoCollection<BsonDocument> collection, FilterDefinition<BsonDocument> filter, int batchSize, CancellationToken cancellationToken)
     {

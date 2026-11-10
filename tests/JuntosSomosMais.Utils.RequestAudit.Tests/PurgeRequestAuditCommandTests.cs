@@ -26,15 +26,17 @@ public class PurgeRequestAuditCommandTests
             _output.ToString());
     }
 
-    [Fact]
-    public async Task ExecuteAsync_InvalidArguments_ThrowsBeforeCreatingThePurger()
+    [Theory]
+    [InlineData("--bogus", "Unrecognized argument: '--bogus'.")]
+    [InlineData("--from=2999-01-01", "'--from' (2999-01-01T00:00:00.0000000Z) must be before the current time")]
+    public async Task ExecuteAsync_InvalidArguments_ThrowsBeforeCreatingThePurger(string arg, string message)
     {
         // Arrange
         var created = false;
 
         // Act
         var exception = await Assert.ThrowsAsync<ArgumentException>(() => PurgeRequestAuditCommand.ExecuteAsync(
-            ["--bogus"],
+            [arg],
             () =>
             {
                 created = true;
@@ -43,7 +45,7 @@ public class PurgeRequestAuditCommandTests
             _output));
 
         // Assert
-        Assert.StartsWith("Unrecognized argument: '--bogus'.", exception.Message);
+        Assert.StartsWith(message, exception.Message);
         Assert.False(created);
         Assert.Empty(_output.ToString());
     }

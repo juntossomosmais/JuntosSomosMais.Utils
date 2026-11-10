@@ -18,8 +18,10 @@ public sealed record PurgeRequestAuditArgs(DateTime? FromUtc, DateTime? ToUtc, b
 
     private const string Usage = "Expected '--from=<date>', '--to=<date>', '--older-than-days=<N>' or '--dry-run'.";
 
+    private static readonly string[] DateFormats = ["yyyy-MM-dd", "yyyy-MM-ddTHH:mm:ssK"];
+
     /// <param name="args">The arguments after the command name.</param>
-    /// <param name="utcNow">The current UTC time.</param>
+    /// <param name="utcNow">Upper limit of both bounds.</param>
     /// <exception cref="ArgumentException">Unknown, duplicate, empty or inconsistent arguments.</exception>
     public static PurgeRequestAuditArgs Parse(string[] args, DateTime utcNow)
     {
@@ -66,6 +68,11 @@ public sealed record PurgeRequestAuditArgs(DateTime? FromUtc, DateTime? ToUtc, b
                 ? SubtractDays(utcNow, _olderThanDays ?? DefaultOlderThanDays)
                 : _to;
 
+            if (_from >= utcNow)
+                throw new ArgumentException($"'{FromArg}' ({_from.Value:O}) must be before the current time ({utcNow:O}).");
+            if (to > utcNow)
+                throw new ArgumentException($"'{ToArg}' ({to.Value:O}) cannot be after the current time ({utcNow:O}).");
+
             return _from.HasValue && to.HasValue && _from.Value >= to.Value
                 ? throw new ArgumentException($"'{FromArg}' ({_from.Value:O}) must be before '{ToArg}' ({to.Value:O}).")
                 : new PurgeRequestAuditArgs(_from, to, _dryRun);
@@ -81,11 +88,8 @@ public sealed record PurgeRequestAuditArgs(DateTime? FromUtc, DateTime? ToUtc, b
                 _olderThanDays = ParseOlderThanDays(value);
         }
 
-        private static (string Name, string? Value) Split(string arg)
-        {
-            var index = arg.IndexOf('=');
-            return index < 0 ? (arg, null) : (arg[..index], arg[(index + 1)..]);
-        }
+        private static (string Name, string? Value) Split(string arg) =>
+            arg.Split('=', 2) is [var name, var value] ? (name, value) : (arg, null);
 
         private static bool IsKnown(string name, string? value) =>
             name.Equals(DryRunArg, StringComparison.OrdinalIgnoreCase)
@@ -96,10 +100,10 @@ public sealed record PurgeRequestAuditArgs(DateTime? FromUtc, DateTime? ToUtc, b
 
         private static DateTime ParseDate(string value, string name)
         {
-            return !DateTime.TryParse(
-                    value, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var parsed)
+            return !DateTimeOffset.TryParseExact(
+                    value, DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)
                 ? throw new ArgumentException($"Invalid date for argument '{name}': '{value}'. Expected format: yyyy-MM-dd or yyyy-MM-ddTHH:mm:ssZ.")
-                : DateTime.SpecifyKind(parsed, DateTimeKind.Utc);
+                : parsed.UtcDateTime;
         }
 
         private static int ParseOlderThanDays(string value)

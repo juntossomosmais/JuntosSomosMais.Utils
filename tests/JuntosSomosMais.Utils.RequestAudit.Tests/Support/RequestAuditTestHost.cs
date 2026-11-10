@@ -30,6 +30,8 @@ internal sealed class RequestAuditTestHost : IAsyncDisposable
     public const string LargeResponse = """{"data":"0123456789012345678901234567890123456789012345678901234567890123456789"}""";
     public const string HandledErrorBody = """{"type":"RULE","token":"abc"}""";
     public const string TrailingWrite = "-tail";
+    public const string NotStartedHeader = "X-Not-Started";
+    public const string PipeBody = """{"key":"written to the pipe"}""";
 
     public static readonly DateTimeOffset Now = new(2026, 11, 10, 12, 30, 0, TimeSpan.Zero);
 
@@ -53,7 +55,8 @@ internal sealed class RequestAuditTestHost : IAsyncDisposable
         Action<RequestAuditOptions>? configure = null,
         bool withExceptionHandler = false,
         bool onKestrel = false,
-        bool withTrailingWrite = false)
+        bool withTrailingWrite = false,
+        bool withStartCheck = false)
     {
         var store = new InMemoryRequestAuditStore();
         var logs = new RecordingLoggerProvider();
@@ -77,6 +80,9 @@ internal sealed class RequestAuditTestHost : IAsyncDisposable
 
                     if (withTrailingWrite)
                         app.Use(WriteAfterTheEndpointAsync);
+
+                    if (withStartCheck)
+                        app.Use(MarkNotStartedAsync);
 
                     app.UseRouting();
                     app.UseRequestAudit();
@@ -106,6 +112,8 @@ internal sealed class RequestAuditTestHost : IAsyncDisposable
         endpoints.MapPost("/audited/throw", ThrowAsync).WithMetadata(audited);
         endpoints.MapGet("/audited/secure", WriteNoContentAsync).RequireAuthorization().WithMetadata(audited);
         endpoints.MapGet("/audited/admin", WriteNoContentAsync).RequireAuthorization("admin").WithMetadata(audited);
+        endpoints.MapGet("/audited/pipe", WriteToThePipeWithoutFlushing).WithMetadata(audited);
+        endpoints.MapGet("/audited/completed", WriteAndCompleteAsync).WithMetadata(audited);
     }
 
     // Disposes the request body on purpose: the audit must not depend on what the endpoint does with it.
@@ -126,6 +134,22 @@ internal sealed class RequestAuditTestHost : IAsyncDisposable
         return Task.CompletedTask;
     }
 
+    private static Task WriteToThePipeWithoutFlushing(HttpContext context)
+    {
+        context.Response.ContentType = "application/json";
+        var bytes = System.Text.Encoding.UTF8.GetBytes(PipeBody);
+        bytes.CopyTo(context.Response.BodyWriter.GetSpan(bytes.Length));
+        context.Response.BodyWriter.Advance(bytes.Length);
+        return Task.CompletedTask;
+    }
+
+    private static async Task WriteAndCompleteAsync(HttpContext context)
+    {
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsync(PipeBody);
+        await context.Response.CompleteAsync();
+    }
+
     private static async Task WriteLargeAsync(HttpContext context)
     {
         context.Response.ContentType = "application/json";
@@ -139,6 +163,13 @@ internal sealed class RequestAuditTestHost : IAsyncDisposable
     {
         await next(context);
         await context.Response.WriteAsync(TrailingWrite);
+    }
+
+    private static async Task MarkNotStartedAsync(HttpContext context, RequestDelegate next)
+    {
+        await next(context);
+        if (!context.Response.HasStarted)
+            context.Response.Headers[NotStartedHeader] = "true";
     }
 
     private static async Task WriteHandledErrorAsync(HttpContext context)

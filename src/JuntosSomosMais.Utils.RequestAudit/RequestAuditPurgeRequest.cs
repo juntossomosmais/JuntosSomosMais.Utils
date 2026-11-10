@@ -7,5 +7,5 @@ namespace JuntosSomosMais.Utils.RequestAudit;
 /// never chases entries written while it runs.
 /// </param>
 /// <param name="DryRun">Only count the matching entries, delete nothing.</param>
-/// <param name="BatchSize">Entries deleted per round trip, so a large purge never holds one long-running delete.</param>
+/// <param name="BatchSize">Entries deleted per round trip.</param>
 public sealed record RequestAuditPurgeRequest(DateTime? FromUtc, DateTime? ToUtc, bool DryRun, int BatchSize = 5000);

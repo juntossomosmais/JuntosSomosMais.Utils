@@ -68,7 +68,11 @@ public sealed class RequestAuditMiddleware(
 
             // After an exception the capture stays in place, so the answer of an exception handler is recorded.
             if (completed)
+            {
+                // Restoring the body drops the writer wrapping the capture, with whatever the endpoint left unflushed in it.
+                await response.BodyWriter.FlushAsync();
                 response.Body = originalBody;
+            }
         }
     }
 
@@ -100,7 +104,7 @@ public sealed class RequestAuditMiddleware(
             };
 
             using var timeout = new CancellationTokenSource(_options.SaveTimeout, timeProvider);
-            await store.SaveAsync(entry, timeout.Token);
+            await store.SaveAsync(entry, timeout.Token).WaitAsync(timeout.Token);
         }
         catch (Exception ex)
         {
@@ -127,9 +131,8 @@ public sealed class RequestAuditMiddleware(
 
             return _masker.MaskBody(contentType, buffer[..Math.Min(read, limit)], read > limit);
         }
-        catch (Exception ex) when (ex is IOException or BadHttpRequestException)
+        catch (Exception)
         {
-            // The caller went away or sent a body the server refused: the endpoint will fail on it too.
             return (null, "Not stored: the request body could not be read.");
         }
     }
