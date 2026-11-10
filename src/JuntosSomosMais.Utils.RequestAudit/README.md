@@ -85,6 +85,26 @@ A body is stored only when it can be masked: JSON (`application/json`, `+json`) 
 | `SensitiveFields` | see above | Fields masked. |
 | `CallerClaims` | `sub`, `client_id`, `azp` | Claim types copied into `Caller`. |
 
+## Retention
+
+Entries are never expired automatically. Old ones are deleted by an explicit purge, the same approach as SimpleHistory: `IRequestAuditPurger` (implemented by the storage provider) and its command-line front end, `PurgeRequestAuditCommand`.
+
+```csharp
+// In a console command of your app, e.g. "purge-request-audit"
+return await PurgeRequestAuditCommand.ExecuteAsync(
+    args, () => new MongoRequestAuditPurger(database, options), Console.Out);
+```
+
+| Argument | Meaning |
+|---|---|
+| *(none)* | Deletes the entries older than 365 days. |
+| `--older-than-days=<N>` | Deletes the entries older than N days. Cannot be combined with `--from` / `--to`. |
+| `--from=<date>` | Inclusive lower bound on `CreatedAtUtc` (`yyyy-MM-dd` or `yyyy-MM-ddTHH:mm:ssZ`). |
+| `--to=<date>` | Exclusive upper bound. When only `--from` is given, the purge stops at the time it started. |
+| `--dry-run` | Only counts what would be deleted. |
+
+The arguments are validated before the purger is created, so bad input never opens a connection. Deletion runs in batches (5000 entries per round trip by default).
+
 ## Your own store
 
 Implement `IRequestAuditStore` and register it as a singleton:
@@ -97,3 +117,5 @@ public sealed class MyStore : IRequestAuditStore
 
 services.AddSingleton<IRequestAuditStore, MyStore>();
 ```
+
+For retention, also implement `IRequestAuditPurger`: delete the entries with `FromUtc <= CreatedAtUtc < ToUtc`, honouring the dry run and the batch size, and report the upper bound applied.

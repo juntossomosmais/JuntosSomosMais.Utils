@@ -20,23 +20,21 @@ public class MongoRequestAuditRegistrationTests
                 resolutions++;
                 return database.Object;
             },
-            options =>
-            {
-                options.CollectionName = "customAudit";
-                options.Retention = TimeSpan.FromDays(7);
-            });
+            options => options.CollectionName = "customAudit");
         using var provider = services.BuildServiceProvider();
         var resolutionsBeforeUse = resolutions;
         var store = provider.GetRequiredService<IRequestAuditStore>();
+        var purger = provider.GetRequiredService<IRequestAuditPurger>();
         var options = provider.GetRequiredService<MongoRequestAuditOptions>();
 
         // Assert
         Assert.Equal(0, resolutionsBeforeUse);
-        Assert.Equal(1, resolutions);
+        Assert.Equal(2, resolutions);
         Assert.IsType<MongoRequestAuditStore>(store);
         Assert.Same(store, provider.GetRequiredService<IRequestAuditStore>());
+        Assert.IsType<MongoRequestAuditPurger>(purger);
+        Assert.Same(purger, provider.GetRequiredService<IRequestAuditPurger>());
         Assert.Equal("customAudit", options.CollectionName);
-        Assert.Equal(TimeSpan.FromDays(7), options.Retention);
     }
 
     [Fact]
@@ -52,7 +50,6 @@ public class MongoRequestAuditRegistrationTests
 
         // Assert
         Assert.Equal("requestAuditLogs", options.CollectionName);
-        Assert.Null(options.Retention);
     }
 
     [Fact]
@@ -71,25 +68,19 @@ public class MongoRequestAuditRegistrationTests
     }
 
     [Theory]
-    [InlineData("", 1, "CollectionName is required.")]
-    [InlineData("audit", 0, "Retention must be positive.")]
-    [InlineData("audit", -1, "Retention must be positive.")]
-    public void AddMongoRequestAudit_InvalidOptions_Throws(string collectionName, int retentionDays, string message)
+    [InlineData("")]
+    [InlineData(" ")]
+    public void AddMongoRequestAudit_InvalidOptions_Throws(string collectionName)
     {
         // Arrange
         var services = new ServiceCollection();
 
         // Act
         var exception = Assert.Throws<InvalidOperationException>(() => services.AddMongoRequestAudit(
-            _ => new Mock<IMongoDatabase>().Object,
-            options =>
-            {
-                options.CollectionName = collectionName;
-                options.Retention = TimeSpan.FromDays(retentionDays);
-            }));
+            _ => new Mock<IMongoDatabase>().Object, options => options.CollectionName = collectionName));
 
         // Assert
-        Assert.Equal(message, exception.Message);
+        Assert.Equal("CollectionName is required.", exception.Message);
         Assert.Empty(services);
     }
 

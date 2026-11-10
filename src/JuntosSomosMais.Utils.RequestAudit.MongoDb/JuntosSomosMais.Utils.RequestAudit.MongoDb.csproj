@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>JuntosSomosMais.Utils.RequestAudit.MongoDb</RootNamespace>
-    <Description>MongoDB provider of RequestAudit: one document per audited HTTP request, with optional expiration through a TTL index.</Description>
+    <Description>MongoDB provider of RequestAudit: one document per audited HTTP request, with a batched purge for retention.</Description>
     <PackageId>JuntosSomosMais.Utils.RequestAudit.MongoDb</PackageId>
     <PackageTags>audit request logging aspnetcore mongodb</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>

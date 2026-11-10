@@ -10,16 +10,12 @@ Built against `MongoDB.Driver` 2.x (`[2.29.0,3.0.0)`).
 services.AddRequestAudit();
 services.AddMongoRequestAudit(
     provider => provider.GetRequiredService<IMongoDatabase>(),
-    options =>
-    {
-        options.CollectionName = "requestAuditLogs"; // default
-        options.Retention = TimeSpan.FromDays(90);   // default: keep forever
-    });
+    options => options.CollectionName = "requestAuditLogs"); // default
 ```
 
-The database is resolved lazily, when the first entry is stored. Calling `AddMongoRequestAudit` twice throws.
+It registers the store (`IRequestAuditStore`) and the purger (`IRequestAuditPurger`). The database is resolved lazily, when each is first used. Calling `AddMongoRequestAudit` twice throws.
 
-## Indexes and expiration
+## Indexes
 
 Registration does not create indexes. Run the setup from the tool that prepares your database (a console command, a migration step), with the same options:
 
@@ -27,9 +23,21 @@ Registration does not create indexes. Run the setup from the tool that prepares 
 await MongoRequestAuditSetup.EnsureAsync(database, options);
 ```
 
-It is idempotent and creates indexes on `CreatedAtUtc`, `Url`, `IpAddress` and `RequestId`. With `Retention`, the `CreatedAtUtc` index is a TTL index and MongoDB deletes the entries after that time. Changing the retention later updates the index in place; removing it drops and recreates that one index.
+It is idempotent and creates indexes on `CreatedAtUtc` (used by the purge), `Url`, `IpAddress` and `RequestId`.
 
-Until the setup runs, entries are stored but nothing expires.
+## Retention
+
+There is no TTL index: entries stay until they are purged. `MongoRequestAuditPurger` deletes by `CreatedAtUtc` range in batches (it selects the ids of one batch, then deletes exactly those), so a large purge never holds one long-running delete. Run it through the core's `PurgeRequestAuditCommand`, whose arguments are documented in the [core README](../JuntosSomosMais.Utils.RequestAudit/README.md#retention):
+
+```csharp
+return await PurgeRequestAuditCommand.ExecuteAsync(
+    args, () => new MongoRequestAuditPurger(database, options), Console.Out);
+```
+
+```bash
+dotnet MyApp.dll purge-request-audit --older-than-days=90 --dry-run
+dotnet MyApp.dll purge-request-audit --older-than-days=90
+```
 
 ## Document shape
 
