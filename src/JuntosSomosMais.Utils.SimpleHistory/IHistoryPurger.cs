@@ -9,6 +9,6 @@ public interface IHistoryPurger
     /// makes a replay of its history fail; in full-document mode every remaining row is still a readable version.
     /// </summary>
     /// <exception cref="ArgumentException">No bound, an empty or inverted interval, an unspecified DateTimeKind or a non-positive batch size.</exception>
-    Task<IReadOnlyList<HistoryPurgeResult>> PurgeAsync(
+    public Task<IReadOnlyList<HistoryPurgeResult>> PurgeAsync(
         IEnumerable<HistoryOptions> sources, HistoryPurgeRequest request, CancellationToken ct = default);
 }

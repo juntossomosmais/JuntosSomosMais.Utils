@@ -12,6 +12,7 @@ public class CustomExceptionHandlerLogLevelTests : IClassFixture<LoggingWebAppFa
     private readonly HttpClient _client;
     private readonly FakeLogCollector _logCollector;
     private const string HandlerCategory = "JuntosSomosMais.Utils.GlobalExceptionHandler.CustomExceptionHandler";
+    private const string MiddlewareCategory = "Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware";
 
     public CustomExceptionHandlerLogLevelTests(LoggingWebAppFactory factory)
     {
@@ -87,4 +88,92 @@ public class CustomExceptionHandlerLogLevelTests : IClassFixture<LoggingWebAppFa
             e.CategoryName == HandlerCategory && e.Message.Contains("Service is down"));
         Assert.Equal(LogLevel.Error, entry.Level);
     }
+
+    // The handler entry must be the same on .NET 8 and .NET 10; the framework middleware entry is what differs.
+    [Fact(DisplayName = "Should write the handler entry and the framework-specific middleware entry for a handled 4xx")]
+    public async Task TryHandleAsync_HandledNotFoundException_ShouldLogHandlerEntryOnEveryFramework()
+    {
+        // Arrange
+        const string exceptionMessage = "Customer not found";
+
+        // Act
+        var response = await _client.GetAsync("/customer/not-found");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var handlerEntry = Assert.Single(_logCollector.Entries, e =>
+            e.CategoryName == HandlerCategory && e.Message.Contains(exceptionMessage));
+        Assert.Equal(LogLevel.Debug, handlerEntry.Level);
+        Assert.Equal(exceptionMessage, handlerEntry.Exception?.Message);
+        AssertMiddlewareEntryForHandledException(exceptionMessage);
+    }
+
+    [Fact(DisplayName = "Should write the handler Error entry and the framework-specific middleware entry for a handled 5xx")]
+    public async Task TryHandleAsync_HandledUnattributedException_ShouldLogHandlerErrorOnEveryFramework()
+    {
+        // Arrange
+        const string exceptionMessage = "Custom exception message";
+
+        // Act
+        var response = await _client.GetAsync("/customer/exception");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        var handlerEntry = Assert.Single(_logCollector.Entries, e =>
+            e.CategoryName == HandlerCategory && e.Message.Contains(exceptionMessage));
+        Assert.Equal(LogLevel.Error, handlerEntry.Level);
+        Assert.Equal(exceptionMessage, handlerEntry.Exception?.Message);
+        AssertMiddlewareEntryForHandledException(exceptionMessage);
+    }
+
+    private void AssertMiddlewareEntryForHandledException(string exceptionMessage)
+    {
+        var middlewareEntries = _logCollector.Entries
+            .Where(e => e.CategoryName == MiddlewareCategory && e.Exception?.Message == exceptionMessage)
+            .ToList();
+
+#if NET10_0_OR_GREATER
+        // .NET 10 suppresses the middleware diagnostics when an IExceptionHandler returns true.
+        Assert.Empty(middlewareEntries);
+#else
+        // .NET 8 logs the exception at Error before calling the handlers; services silence it with a Fatal override.
+        var middlewareEntry = Assert.Single(middlewareEntries);
+        Assert.Equal(LogLevel.Error, middlewareEntry.Level);
+#endif
+    }
+
+#if NET10_0_OR_GREATER
+    // With SuppressDiagnosticsCallback returning false, .NET 10 emits the middleware entry again, as .NET 8 does.
+    public class WithDiagnosticsKept : IClassFixture<KeepDiagnosticsWebAppFactory>
+    {
+        private readonly HttpClient _client;
+        private readonly FakeLogCollector _logCollector;
+
+        public WithDiagnosticsKept(KeepDiagnosticsWebAppFactory factory)
+        {
+            _client = factory.CreateClient();
+            _logCollector = factory.LogCollector;
+            _logCollector.Clear();
+        }
+
+        [Fact(DisplayName = "Should write the middleware Error entry like .NET 8 when diagnostics are kept")]
+        public async Task TryHandleAsync_HandledExceptionWithDiagnosticsKept_ShouldLogMiddlewareError()
+        {
+            // Arrange
+            const string exceptionMessage = "Customer not found";
+
+            // Act
+            var response = await _client.GetAsync("/customer/not-found");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            var handlerEntry = Assert.Single(_logCollector.Entries, e =>
+                e.CategoryName == HandlerCategory && e.Message.Contains(exceptionMessage));
+            Assert.Equal(LogLevel.Debug, handlerEntry.Level);
+            var middlewareEntry = Assert.Single(_logCollector.Entries, e =>
+                e.CategoryName == MiddlewareCategory && e.Exception?.Message == exceptionMessage);
+            Assert.Equal(LogLevel.Error, middlewareEntry.Level);
+        }
+    }
+#endif
 }

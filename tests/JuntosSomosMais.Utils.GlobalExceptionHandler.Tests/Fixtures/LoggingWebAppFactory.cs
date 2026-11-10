@@ -23,6 +23,10 @@ public class LoggingWebAppFactory : WebApplicationFactory<LoggingWebAppFactory>
         return host;
     }
 
+    protected virtual void ConfigureExceptionHandlerOptions(ExceptionHandlerOptions options)
+    {
+    }
+
     protected override IHostBuilder CreateHostBuilder()
     {
         return new HostBuilder()
@@ -41,10 +45,12 @@ public class LoggingWebAppFactory : WebApplicationFactory<LoggingWebAppFactory>
                     })
                     .Configure(app =>
                     {
-                        app.UseExceptionHandler(new ExceptionHandlerOptions
+                        var exceptionHandlerOptions = new ExceptionHandlerOptions
                         {
                             ExceptionHandler = _ => Task.CompletedTask
-                        });
+                        };
+                        ConfigureExceptionHandlerOptions(exceptionHandlerOptions);
+                        app.UseExceptionHandler(exceptionHandlerOptions);
                         app.UseRouting();
                         app.UseEndpoints(endpoints => endpoints.MapControllers());
                     });
