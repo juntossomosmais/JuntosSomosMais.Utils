@@ -578,7 +578,7 @@ Every handled exception is logged via `ILogger<CustomExceptionHandler>`: at `Err
 The handler's own log is the same on .NET 8 and .NET 10. What changes between them is the framework's `ExceptionHandlerMiddleware`:
 
 - On .NET 8 it always reports the exception: before calling the handlers it logs "An unhandled exception has occurred while executing the request." at `Error` level and adds the exception type as the `error.type` tag of the `http.server.request.duration` metric, and once a handler handles it, it writes the `Microsoft.AspNetCore.Diagnostics.HandledException` diagnostic event. Services set `"Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware": "Fatal"` in the Serilog `MinimumLevel.Override` to keep that log entry out of the error logs.
-- On .NET 10 all three are skipped by default when a handler returns `true`, so 4xx responses lose the `error.type` tag and 5xx responses get the status code instead of the exception type.
+- On .NET 10 all three are skipped by default when a handler returns `true`, so both 4xx and 5xx responses lose the `error.type` tag on the metric (the status code only shows up on the span).
 
 To keep the .NET 8 behavior when moving a service to .NET 10, turn the suppression off and keep the `Fatal` override, which still silences the log entry:
 
