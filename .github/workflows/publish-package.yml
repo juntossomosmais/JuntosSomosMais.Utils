@@ -14,7 +14,8 @@ permissions:
 
 jobs:
   publish-package:
-    runs-on: ubuntu-latest
+    # Pinned with the other workflows so packages are built on the same image the tests ran on.
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v6
