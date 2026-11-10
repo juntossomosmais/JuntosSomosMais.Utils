@@ -20,7 +20,7 @@ Every package ships a build per framework, and NuGet picks the one that matches 
 | Package | Target frameworks | Notable dependencies |
 |---|---|---|
 | `JuntosSomosMais.Utils.GlobalExceptionHandler` | `net8.0`, `net10.0` | ASP.NET Core shared framework, `FluentValidation` 11+ |
-| `JuntosSomosMais.Utils.HealthChecks` | `net8.0`, `net10.0` | `MongoDB.Driver` **2.x** (see [Requirements](#requirements)), `RabbitMQ.Client` 7, `Microsoft.Data.SqlClient` 5+ |
+| `JuntosSomosMais.Utils.HealthChecks` | `net8.0`, `net10.0` | `MongoDB.Driver` **2.x** (`[2.30.0, 3.0.0)`, see [Requirements](#requirements)), `RabbitMQ.Client` 7, `Microsoft.Data.SqlClient` 5+ |
 | `JuntosSomosMais.Utils.Instrumentation` | `net8.0`, `net10.0` | `FluentValidation` 11+, `JuntosSomosMais.Ziggurat` |
 | `JuntosSomosMais.Utils.Cnpj` | `net8.0`, `net10.0` | none |
 | `JuntosSomosMais.Utils.SimpleHistory` | `net6.0`, `net8.0`, `net10.0` | `Microsoft.Extensions.*` 8.x on `net6.0`/`net8.0`, 10.x on `net10.0` |
@@ -46,7 +46,7 @@ Provides reusable `IHealthCheck` implementations and a standardized JSON respons
 
 - .NET 8 or .NET 10
 - Dependencies are pulled transitively: `Hangfire.Core`, `Microsoft.Data.SqlClient`, `RabbitMQ.Client`, `NRedisStack`, `Azure.Storage.Blobs`, `Azure.Messaging.ServiceBus`, `MongoDB.Driver`
-- `MongoDB.Driver` **2.x**. The package is compiled against the 2.x line, where `MongoDB.Driver.Core` is a separate assembly; 3.0 merged it into `MongoDB.Driver`. A service that references `MongoDB.Driver` 3.x fails with `FileNotFoundException: MongoDB.Driver.Core` as soon as a health check runs, on .NET 8 and .NET 10 alike. Support for 3.x will come as a separate release.
+- `MongoDB.Driver` **2.x**. The package is compiled against the 2.x line, where `MongoDB.Driver.Core` is a separate assembly; 3.0 merged it into `MongoDB.Driver`. A service that references `MongoDB.Driver` 3.x would fail with `FileNotFoundException: MongoDB.Driver.Core` as soon as a health check runs, on .NET 8 and .NET 10 alike, so the dependency is declared as `[2.30.0, 3.0.0)` and NuGet warns (NU1608) when a service on 3.x installs the package. Support for 3.x will come as a separate release.
 
 ### Available health checks
 
@@ -575,7 +575,20 @@ Every handled exception is logged via `ILogger<CustomExceptionHandler>`: at `Err
 - `Message` — the exception message
 - The full exception object (stack trace included regardless of `ViewStackTrace`)
 
-The handler's own log is the same on .NET 8 and .NET 10. What changes between them is the framework's `ExceptionHandlerMiddleware`: on .NET 8 it logs "An unhandled exception has occurred while executing the request." at `Error` level *before* calling the handlers, so services set `"Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware": "Fatal"` in the Serilog `MinimumLevel.Override` to keep 4xx responses out of the error logs. On .NET 10 the middleware no longer writes that entry when a handler returns `true`. Keep the override when moving a service to .NET 10, so the error logs stay the same during and after the migration.
+The handler's own log is the same on .NET 8 and .NET 10. What changes between them is the framework's `ExceptionHandlerMiddleware`:
+
+- On .NET 8 it always reports the exception: before calling the handlers it logs "An unhandled exception has occurred while executing the request." at `Error` level and adds the exception type as the `error.type` tag of the `http.server.request.duration` metric, and once a handler handles it, it writes the `Microsoft.AspNetCore.Diagnostics.HandledException` diagnostic event. Services set `"Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware": "Fatal"` in the Serilog `MinimumLevel.Override` to keep that log entry out of the error logs.
+- On .NET 10 all three are skipped by default when a handler returns `true`, so 4xx responses lose the `error.type` tag and 5xx responses get the status code instead of the exception type.
+
+To keep the .NET 8 behavior when moving a service to .NET 10, turn the suppression off and keep the `Fatal` override, which still silences the log entry:
+
+```csharp
+app.UseExceptionHandler(new ExceptionHandlerOptions
+{
+    // .NET 10: report handled exceptions (diagnostic event, error.type metric tag) as .NET 8 does.
+    SuppressDiagnosticsCallback = _ => false
+});
+```
 
 ### Full example
 
