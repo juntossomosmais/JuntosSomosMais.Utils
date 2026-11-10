@@ -15,7 +15,10 @@ public static class RequestAuditExtensions
         this IServiceCollection services, Action<RequestAuditOptions>? configure = null)
     {
         var builder = services.AddOptions<RequestAuditOptions>()
-            .Validate(options => options.MaxBodyBytes > 0, "RequestAuditOptions.MaxBodyBytes must be positive.");
+            .Validate(
+                options => options.MaxBodyBytes is > 0 and <= RequestAuditOptions.MaxBodyBytesLimit,
+                $"RequestAuditOptions.MaxBodyBytes must be between 1 and {RequestAuditOptions.MaxBodyBytesLimit}.")
+            .Validate(options => options.SaveTimeout > TimeSpan.Zero, "RequestAuditOptions.SaveTimeout must be positive.");
         if (configure is not null)
             builder.Configure(configure);
 

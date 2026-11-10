@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using MongoDB.Driver.Core.Events;
 
 namespace JuntosSomosMais.Utils.RequestAudit.MongoDb.Tests;
 
@@ -40,6 +42,30 @@ public class MongoRequestAuditPurgerTests : RequestAuditMongoTestBase
         // Assert
         Assert.Equal(new RequestAuditPurgeResult(4, 4, false, Day(5)), result);
         Assert.Equal(new[] { Day(5) }, await ReadDatesAsync());
+    }
+
+    [Fact]
+    public async Task PurgeAsync_MoreEntriesThanTheBatchSize_DeletesAtMostBatchSizePerCommand()
+    {
+        // Arrange
+        await InsertAsync(Day(1), Day(2), Day(3), Day(4), Day(5));
+        var idsPerDelete = new ConcurrentQueue<int>();
+        var settings = CreateClientSettings();
+        settings.ClusterConfigurator = cluster => cluster.Subscribe<CommandStartedEvent>(started =>
+        {
+            if (started.CommandName == "delete")
+                idsPerDelete.Enqueue(started.Command["deletes"][0]["q"]["_id"]["$in"].AsBsonArray.Count);
+        });
+        var database = new MongoClient(settings).GetDatabase(Database.DatabaseNamespace.DatabaseName);
+        var purger = new MongoRequestAuditPurger(database, new MongoRequestAuditOptions(), new PurgeClock(Now));
+
+        // Act
+        var result = await purger.PurgeAsync(new RequestAuditPurgeRequest(null, Day(6), DryRun: false, BatchSize: 2));
+
+        // Assert
+        Assert.Equal(new RequestAuditPurgeResult(5, 5, false, Day(6)), result);
+        Assert.Equal(new[] { 2, 2, 1 }, idsPerDelete);
+        Assert.Empty(await ReadDatesAsync());
     }
 
     [Fact]

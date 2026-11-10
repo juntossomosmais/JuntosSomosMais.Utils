@@ -17,16 +17,20 @@ public abstract class RequestAuditMongoTestBase : IDisposable
 
     protected RequestAuditMongoTestBase()
     {
-        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ConnectionString");
-        var settings = MongoClientSettings.FromConnectionString(
-            string.IsNullOrWhiteSpace(connectionString) ? DefaultConnectionString : connectionString);
-        settings.ServerSelectionTimeout = TimeSpan.FromSeconds(10);
-
-        _client = new MongoClient(settings);
+        _client = new MongoClient(CreateClientSettings());
         Database = _client.GetDatabase(_databaseName);
     }
 
     protected IMongoDatabase Database { get; }
+
+    protected static MongoClientSettings CreateClientSettings()
+    {
+        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ConnectionString");
+        var settings = MongoClientSettings.FromConnectionString(
+            string.IsNullOrWhiteSpace(connectionString) ? DefaultConnectionString : connectionString);
+        settings.ServerSelectionTimeout = TimeSpan.FromSeconds(10);
+        return settings;
+    }
 
     protected IMongoCollection<BsonDocument> Collection(string name = "requestAuditLogs") =>
         Database.GetCollection<BsonDocument>(name);

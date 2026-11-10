@@ -8,29 +8,29 @@ using Microsoft.Net.Http.Headers;
 
 namespace JuntosSomosMais.Utils.RequestAudit;
 
-/// <summary>Turns what was received and answered into what is safe to store.</summary>
-internal static class RequestAuditMasker
+internal sealed class RequestAuditMasker(RequestAuditOptions options)
 {
     internal const string Mask = "***";
 
     private static readonly JsonSerializerOptions JsonOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    private static readonly char[] KeySeparators = ['.', '[', ']'];
 
-    /// <summary>Copies the headers, masking the sensitive ones.</summary>
-    internal static Dictionary<string, string> MaskHeaders(
-        IEnumerable<KeyValuePair<string, StringValues>> headers, RequestAuditOptions options) =>
-        MaskValues(headers, options.SensitiveHeaders);
+    private readonly HashSet<string> _sensitiveFields =
+        options.SensitiveFields.Select(NormalizeFieldName).ToHashSet(StringComparer.Ordinal);
 
-    /// <summary>Copies query parameters or form fields, masking the sensitive ones.</summary>
-    internal static Dictionary<string, string> MaskFields(
-        IEnumerable<KeyValuePair<string, StringValues>> fields, RequestAuditOptions options) =>
-        MaskValues(fields, options.SensitiveFields);
+    internal Dictionary<string, string> MaskHeaders(IEnumerable<KeyValuePair<string, StringValues>> headers) =>
+        headers.ToDictionary(
+            pair => pair.Key,
+            pair => options.SensitiveHeaders.Contains(pair.Key) ? Mask : pair.Value.ToString(),
+            StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// The body to store and, when it is not stored, why. Only JSON and URL-encoded forms are stored, because only
-    /// those can be masked; a body cut at the size limit cannot be parsed, so it is not stored either.
-    /// </summary>
-    internal static (string? Body, string? Note) MaskBody(
-        string? contentType, byte[] body, bool truncated, RequestAuditOptions options)
+    internal Dictionary<string, string> MaskFields(IEnumerable<KeyValuePair<string, StringValues>> fields) =>
+        fields.ToDictionary(
+            pair => pair.Key,
+            pair => IsSensitiveField(pair.Key) ? Mask : pair.Value.ToString(),
+            StringComparer.OrdinalIgnoreCase);
+
+    internal (string? Body, string? Note) MaskBody(string? contentType, byte[] body, bool truncated)
     {
         if (truncated)
             return (null, $"Not stored: larger than {options.MaxBodyBytes} bytes.");
@@ -39,19 +39,37 @@ internal static class RequestAuditMasker
 
         return ReadKind(contentType) switch
         {
-            BodyKind.Json => MaskJson(body, options),
+            BodyKind.Json => MaskJson(body),
             BodyKind.Form => (JsonSerializer.Serialize(
-                MaskFields(QueryHelpers.ParseQuery(Encoding.UTF8.GetString(body)), options), JsonOptions), null),
+                MaskFields(QueryHelpers.ParseQuery(Encoding.UTF8.GetString(body))), JsonOptions), null),
             _ => (null, $"Not stored: content type '{contentType}' cannot be masked ({body.Length} bytes)."),
         };
     }
 
-    private static (string? Body, string? Note) MaskJson(byte[] body, RequestAuditOptions options)
+    internal static string NormalizeFieldName(string name)
+    {
+        var segment = name
+            .Split(KeySeparators, StringSplitOptions.RemoveEmptyEntries)
+            .LastOrDefault(part => !part.All(char.IsAsciiDigit)) ?? name;
+
+        var normalized = new StringBuilder(segment.Length);
+        foreach (var character in segment)
+        {
+            if (character is not ('_' or '-'))
+                normalized.Append(char.ToLowerInvariant(character));
+        }
+
+        return normalized.ToString();
+    }
+
+    private bool IsSensitiveField(string name) => _sensitiveFields.Contains(NormalizeFieldName(name));
+
+    private (string? Body, string? Note) MaskJson(byte[] body)
     {
         try
         {
             var node = JsonNode.Parse(body);
-            MaskNode(node, options.SensitiveFields);
+            MaskNode(node);
             return (node?.ToJsonString(JsonOptions) ?? "null", null);
         }
         catch (Exception ex) when (ex is JsonException or ArgumentException)
@@ -61,31 +79,24 @@ internal static class RequestAuditMasker
         }
     }
 
-    private static void MaskNode(JsonNode? node, ISet<string> sensitiveFields)
+    private void MaskNode(JsonNode? node)
     {
         if (node is JsonArray array)
         {
             foreach (var item in array)
-                MaskNode(item, sensitiveFields);
+                MaskNode(item);
         }
         else if (node is JsonObject json)
         {
             foreach (var name in json.Select(property => property.Key).ToList())
             {
-                if (sensitiveFields.Contains(name))
+                if (IsSensitiveField(name))
                     json[name] = Mask;
                 else
-                    MaskNode(json[name], sensitiveFields);
+                    MaskNode(json[name]);
             }
         }
     }
-
-    private static Dictionary<string, string> MaskValues(
-        IEnumerable<KeyValuePair<string, StringValues>> values, ISet<string> sensitive) =>
-        values.ToDictionary(
-            pair => pair.Key,
-            pair => sensitive.Contains(pair.Key) ? Mask : pair.Value.ToString(),
-            StringComparer.OrdinalIgnoreCase);
 
     private static BodyKind ReadKind(string? contentType)
     {

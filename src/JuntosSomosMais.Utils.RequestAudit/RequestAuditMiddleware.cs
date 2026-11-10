@@ -19,6 +19,7 @@ public sealed class RequestAuditMiddleware(
     private const string TraceParentHeader = "traceparent";
 
     private readonly RequestAuditOptions _options = options.Value;
+    private readonly RequestAuditMasker _masker = new(options.Value);
 
     /// <summary>Runs the middleware.</summary>
     public Task InvokeAsync(HttpContext context) =>
@@ -35,9 +36,9 @@ public sealed class RequestAuditMiddleware(
             CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime,
             Method = request.Method,
             Url = $"{request.Scheme}://{request.Host}{request.PathBase}{request.Path}",
-            QueryParams = RequestAuditMasker.MaskFields(request.Query, _options),
+            QueryParams = _masker.MaskFields(request.Query),
             IpAddress = ReadIpAddress(context),
-            RequestHeaders = RequestAuditMasker.MaskHeaders(request.Headers, _options),
+            RequestHeaders = _masker.MaskHeaders(request.Headers),
             RequestId = context.TraceIdentifier,
             TraceParent = request.Headers.TryGetValue(TraceParentHeader, out var traceParent) ? traceParent.ToString() : null,
         };
@@ -51,8 +52,9 @@ public sealed class RequestAuditMiddleware(
         audit.ResponseCapture = capture;
 
         // Saved once the response is sent, whoever wrote it: the endpoint or an exception handler placed before
-        // this middleware. It also keeps the write to the store out of the time the caller waits.
-        response.OnCompleted(() => SaveAsync(context, audit));
+        // this middleware. On HTTP/1.1 the server reads the next request on the connection only after this save,
+        // so it is bounded by SaveTimeout.
+        response.OnCompleted(() => SaveAsync(context.Response, audit));
 
         var completed = false;
         try
@@ -70,16 +72,14 @@ public sealed class RequestAuditMiddleware(
         }
     }
 
-    private async Task SaveAsync(HttpContext context, PendingAudit audit)
+    private async Task SaveAsync(HttpResponse response, PendingAudit audit)
     {
         try
         {
-            var response = context.Response;
             using var capture = audit.ResponseCapture!;
-            var (responseBody, responseBodyNote) = RequestAuditMasker.MaskBody(
-                response.ContentType, capture.Captured, capture.Truncated, _options);
+            var (responseBody, responseBodyNote) = _masker.MaskBody(response.ContentType, capture.Captured, capture.Truncated);
 
-            await store.SaveAsync(new RequestAuditEntry
+            var entry = new RequestAuditEntry
             {
                 Id = Guid.NewGuid(),
                 CreatedAtUtc = audit.CreatedAtUtc,
@@ -91,13 +91,16 @@ public sealed class RequestAuditMiddleware(
                 RequestBody = audit.RequestBody,
                 RequestBodyNote = audit.RequestBodyNote,
                 ResponseStatusCode = response.StatusCode,
-                ResponseHeaders = RequestAuditMasker.MaskHeaders(response.Headers, _options),
+                ResponseHeaders = _masker.MaskHeaders(response.Headers),
                 ResponseBody = responseBody,
                 ResponseBodyNote = responseBodyNote,
                 RequestId = audit.RequestId,
                 TraceParent = audit.TraceParent,
                 Caller = audit.Caller,
-            });
+            };
+
+            using var timeout = new CancellationTokenSource(_options.SaveTimeout, timeProvider);
+            await store.SaveAsync(entry, timeout.Token);
         }
         catch (Exception ex)
         {
@@ -111,11 +114,10 @@ public sealed class RequestAuditMiddleware(
         var contentType = request.ContentType;
         var limit = _options.MaxBodyBytes;
         if (request.ContentLength > limit)
-            return RequestAuditMasker.MaskBody(contentType, [], truncated: true, _options);
+            return _masker.MaskBody(contentType, [], truncated: true);
 
         try
         {
-            // Buffered, so the endpoint still reads the whole body after it is rewound.
             request.EnableBuffering();
 
             // One byte past the limit tells a body of exactly the limit from a larger one.
@@ -123,7 +125,7 @@ public sealed class RequestAuditMiddleware(
             var read = await request.Body.ReadAtLeastAsync(buffer, buffer.Length, throwOnEndOfStream: false);
             request.Body.Position = 0;
 
-            return RequestAuditMasker.MaskBody(contentType, buffer[..Math.Min(read, limit)], read > limit, _options);
+            return _masker.MaskBody(contentType, buffer[..Math.Min(read, limit)], read > limit);
         }
         catch (Exception ex) when (ex is IOException or BadHttpRequestException)
         {

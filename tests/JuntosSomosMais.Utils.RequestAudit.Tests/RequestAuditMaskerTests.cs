@@ -7,6 +7,8 @@ public class RequestAuditMaskerTests
 {
     private readonly RequestAuditOptions _options = new();
 
+    private RequestAuditMasker Masker => new(_options);
+
     [Fact]
     public void MaskHeaders_SensitiveHeaderInAnyCase_MasksOnlyItsValue()
     {
@@ -19,7 +21,7 @@ public class RequestAuditMaskerTests
         };
 
         // Act
-        var masked = RequestAuditMasker.MaskHeaders(headers, _options);
+        var masked = Masker.MaskHeaders(headers);
 
         // Assert
         Assert.Equal(
@@ -40,7 +42,7 @@ public class RequestAuditMaskerTests
         var headers = new Dictionary<string, StringValues> { ["x-partner-secret"] = "abc" };
 
         // Act
-        var masked = RequestAuditMasker.MaskHeaders(headers, _options);
+        var masked = Masker.MaskHeaders(headers);
 
         // Assert
         Assert.Equal("***", masked["X-Partner-Secret"]);
@@ -53,7 +55,7 @@ public class RequestAuditMaskerTests
         var query = new Dictionary<string, StringValues> { ["Token"] = "abc", ["page"] = "2", ["authorization"] = "kept" };
 
         // Act
-        var masked = RequestAuditMasker.MaskFields(query, _options);
+        var masked = Masker.MaskFields(query);
 
         // Assert
         Assert.Equal(
@@ -68,7 +70,7 @@ public class RequestAuditMaskerTests
         var body = Array.Empty<byte>();
 
         // Act
-        var result = RequestAuditMasker.MaskBody("application/json", body, truncated: false, _options);
+        var result = Masker.MaskBody("application/json", body, truncated: false);
 
         // Assert
         Assert.Equal((null, null), result);
@@ -82,7 +84,7 @@ public class RequestAuditMaskerTests
         var body = Bytes("""{"key":"va""");
 
         // Act
-        var result = RequestAuditMasker.MaskBody("application/json", body, truncated: true, _options);
+        var result = Masker.MaskBody("application/json", body, truncated: true);
 
         // Assert
         Assert.Equal((null, "Not stored: larger than 10 bytes."), result);
@@ -102,7 +104,7 @@ public class RequestAuditMaskerTests
             """);
 
         // Act
-        var result = RequestAuditMasker.MaskBody(contentType, body, truncated: false, _options);
+        var result = Masker.MaskBody(contentType, body, truncated: false);
 
         // Assert
         Assert.Equal(
@@ -121,7 +123,7 @@ public class RequestAuditMaskerTests
         var body = Bytes(json);
 
         // Act
-        var result = RequestAuditMasker.MaskBody("application/json", body, truncated: false, _options);
+        var result = Masker.MaskBody("application/json", body, truncated: false);
 
         // Assert
         Assert.Equal((expected, null), result);
@@ -137,7 +139,7 @@ public class RequestAuditMaskerTests
         var body = Bytes(json);
 
         // Act
-        var result = RequestAuditMasker.MaskBody("application/json", body, truncated: false, _options);
+        var result = Masker.MaskBody("application/json", body, truncated: false);
 
         // Assert
         Assert.Equal((null, $"Not stored: invalid JSON ({body.Length} bytes)."), result);
@@ -150,8 +152,7 @@ public class RequestAuditMaskerTests
         var body = Bytes("key1=value+1&password=p%40ss&key2=a&key2=b");
 
         // Act
-        var result = RequestAuditMasker.MaskBody(
-            "application/x-www-form-urlencoded; charset=utf-8", body, truncated: false, _options);
+        var result = Masker.MaskBody("application/x-www-form-urlencoded; charset=utf-8", body, truncated: false);
 
         // Assert
         Assert.Equal(("""{"key1":"value 1","password":"***","key2":"a,b"}""", null), result);
@@ -168,10 +169,136 @@ public class RequestAuditMaskerTests
         var body = Bytes("password=secret");
 
         // Act
-        var result = RequestAuditMasker.MaskBody(contentType, body, truncated: false, _options);
+        var result = Masker.MaskBody(contentType, body, truncated: false);
 
         // Assert
         Assert.Equal((null, $"Not stored: content type '{contentType}' cannot be masked (15 bytes)."), result);
+    }
+
+    [Fact]
+    public void MaskHeaders_SensitiveHeaderNameThatOnlyLooksAlike_IsNotMasked()
+    {
+        // Arrange
+        var headers = new Dictionary<string, StringValues> { ["X_Api_Key"] = "kept", ["Request.Authorization"] = "kept" };
+
+        // Act
+        var masked = Masker.MaskHeaders(headers);
+
+        // Assert
+        Assert.Equal(new Dictionary<string, string> { ["X_Api_Key"] = "kept", ["Request.Authorization"] = "kept" }, masked);
+    }
+
+    [Theory]
+    [InlineData("access_token")]
+    [InlineData("accessToken")]
+    [InlineData("AccessToken")]
+    [InlineData("ACCESS-TOKEN")]
+    [InlineData("clientSecret")]
+    [InlineData("refreshToken")]
+    [InlineData("Password")]
+    public void MaskBody_JsonPropertyInAnotherNamingConvention_IsMasked(string name)
+    {
+        // Arrange
+        var body = Bytes($$"""{"{{name}}":"x","nested":{"{{name}}":"y"},"accessTokenType":"Bearer"}""");
+
+        // Act
+        var result = Masker.MaskBody("application/json", body, truncated: false);
+
+        // Assert
+        Assert.Equal(($$"""{"{{name}}":"***","nested":{"{{name}}":"***"},"accessTokenType":"Bearer"}""", null), result);
+    }
+
+    [Fact]
+    public void MaskBody_UrlEncodedFormWithModelBoundKeys_MasksByTheLastSegment()
+    {
+        // Arrange
+        var body = Bytes("Input.Password=p&user%5Bpassword%5D=p&user%5Bname%5D=n&phones%5B0%5D=1&Input.UserName=u");
+
+        // Act
+        var result = Masker.MaskBody("application/x-www-form-urlencoded", body, truncated: false);
+
+        // Assert
+        Assert.Equal(
+            ("""{"Input.Password":"***","user[password]":"***","user[name]":"n","phones[0]":"1","Input.UserName":"u"}""", null),
+            result);
+    }
+
+    [Fact]
+    public void MaskFields_ModelBoundQueryKeys_MasksByTheLastSegment()
+    {
+        // Arrange
+        var query = new Dictionary<string, StringValues>
+        {
+            ["filter.email"] = "a@b.c",
+            ["filter[Email]"] = "a@b.c",
+            ["emails[0]"] = "a@b.c",
+            ["email[0]"] = "a@b.c",
+            ["contact.phone[]"] = "1",
+            ["filter.name"] = "n",
+            ["accessToken"] = "t",
+        };
+
+        // Act
+        var masked = Masker.MaskFields(query);
+
+        // Assert
+        Assert.Equal(
+            new Dictionary<string, string>
+            {
+                ["filter.email"] = "***",
+                ["filter[Email]"] = "***",
+                ["emails[0]"] = "a@b.c",
+                ["email[0]"] = "***",
+                ["contact.phone[]"] = "***",
+                ["filter.name"] = "n",
+                ["accessToken"] = "***",
+            },
+            masked);
+    }
+
+    [Fact]
+    public void MaskFields_CustomSensitiveFieldInAnotherNamingConvention_MatchesEveryConvention()
+    {
+        // Arrange
+        _options.SensitiveFields.Add("Card-Number");
+        var fields = new Dictionary<string, StringValues>
+        {
+            ["cardNumber"] = "1",
+            ["card_number"] = "2",
+            ["Payment.CardNumber"] = "3",
+            ["card"] = "4",
+        };
+
+        // Act
+        var masked = Masker.MaskFields(fields);
+
+        // Assert
+        Assert.Equal(
+            new Dictionary<string, string>
+            {
+                ["cardNumber"] = "***",
+                ["card_number"] = "***",
+                ["Payment.CardNumber"] = "***",
+                ["card"] = "4",
+            },
+            masked);
+    }
+
+    [Theory]
+    [InlineData("access_token", "accesstoken")]
+    [InlineData("Input.Password", "password")]
+    [InlineData("user[password]", "password")]
+    [InlineData("user[phones][0]", "phones")]
+    [InlineData("items[0]", "items")]
+    [InlineData("0", "0")]
+    [InlineData("", "")]
+    public void NormalizeFieldName_Key_KeepsTheLastNamedSegment(string name, string expected)
+    {
+        // Act
+        var normalized = RequestAuditMasker.NormalizeFieldName(name);
+
+        // Assert
+        Assert.Equal(expected, normalized);
     }
 
     private static byte[] Bytes(string text) => Encoding.UTF8.GetBytes(text.Trim());

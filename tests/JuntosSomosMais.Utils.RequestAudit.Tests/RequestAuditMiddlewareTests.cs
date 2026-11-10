@@ -365,8 +365,11 @@ public class RequestAuditMiddlewareTests
     public async Task InvokeAsync_DisabledOrEndpointNotMarked_LeavesTheRequestUntouched(bool enabled, bool? marked)
     {
         // Arrange
+        var options = new RequestAuditOptions { Enabled = enabled };
         var store = new Mock<IRequestAuditStore>(MockBehavior.Strict);
+        var responseFeature = new CompletableResponseFeature();
         var context = new DefaultHttpContext();
+        context.Features.Set<IHttpResponseFeature>(responseFeature);
         var requestBody = context.Request.Body;
         var responseBody = context.Response.Body;
         if (marked is not null)
@@ -385,12 +388,13 @@ public class RequestAuditMiddlewareTests
                 return Task.CompletedTask;
             },
             store.Object,
-            Options.Create(new RequestAuditOptions { Enabled = enabled }),
+            Options.Create(options),
             TimeProvider.System,
             NullLogger<RequestAuditMiddleware>.Instance);
 
         // Act
         await middleware.InvokeAsync(context);
+        await responseFeature.CompleteAsync();
 
         // Assert
         Assert.Same(requestBody, requestBodySeen);
@@ -402,6 +406,7 @@ public class RequestAuditMiddlewareTests
     public async Task InvokeAsync_RequestBodyCannotBeRead_SavesTheEntryWithoutIt()
     {
         // Arrange
+        var options = new RequestAuditOptions { ClientIpHeader = string.Empty };
         RequestAuditEntry? saved = null;
         var store = new Mock<IRequestAuditStore>();
         store.Setup(s => s.SaveAsync(It.IsAny<RequestAuditEntry>(), It.IsAny<CancellationToken>()))
@@ -415,6 +420,7 @@ public class RequestAuditMiddlewareTests
         context.Request.Method = "POST";
         context.Request.ContentType = "application/json";
         context.Request.Body = new BrokenStream();
+        var responseBody = context.Response.Body;
         var middleware = new RequestAuditMiddleware(
             current =>
             {
@@ -422,15 +428,17 @@ public class RequestAuditMiddlewareTests
                 return Task.CompletedTask;
             },
             store.Object,
-            Options.Create(new RequestAuditOptions { ClientIpHeader = string.Empty }),
+            Options.Create(options),
             TimeProvider.System,
             NullLogger<RequestAuditMiddleware>.Instance);
 
         // Act
         await middleware.InvokeAsync(context);
+        var responseBodyAfter = context.Response.Body;
         await responseFeature.CompleteAsync();
 
         // Assert
+        Assert.Same(responseBody, responseBodyAfter);
         Assert.NotNull(saved);
         Assert.Null(saved.RequestBody);
         Assert.Equal("Not stored: the request body could not be read.", saved.RequestBodyNote);
@@ -443,14 +451,99 @@ public class RequestAuditMiddlewareTests
     {
         // Arrange
         await using var host = await RequestAuditTestHost.StartAsync();
-        host.Store.Failure = new InvalidOperationException("Nothing should be saved.");
 
         // Act
         var response = await host.Client.PostAsync("/plain/echo", Json("""{"key":"value"}"""));
+        await host.Client.GetAsync("/audited/empty");
+        await host.Store.WaitForEntryAsync();
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("""{"key":"value"}""", await response.Content.ReadAsStringAsync());
+        var entry = Assert.Single(host.Store.Entries);
+        Assert.Equal("http://localhost/audited/empty", entry.Url);
+        Assert.Equal(1, host.Store.Calls);
+        Assert.Empty(host.Logs.Records);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_MiddlewareBeforeTheAuditWritesAfterIt_TheWriteIsNotRecorded()
+    {
+        // Arrange
+        await using var host = await RequestAuditTestHost.StartAsync(withTrailingWrite: true);
+
+        // Act
+        var response = await host.Client.PostAsync(EchoRoute, Json("""{"key":"value"}"""));
+        var entry = await host.Store.WaitForEntryAsync();
+
+        // Assert
+        Assert.Equal("""{"key":"value"}""" + RequestAuditTestHost.TrailingWrite, await response.Content.ReadAsStringAsync());
+        Assert.Equal("""{"key":"value"}""", entry.ResponseBody);
+        Assert.Null(entry.ResponseBodyNote);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_OnKestrelWithAStoreThatNeverAnswers_AnswersTheNextRequestOnTheConnectionAfterSaveTimeout()
+    {
+        // Arrange
+        await using var host = await RequestAuditTestHost.StartAsync(
+            options => options.SaveTimeout = TimeSpan.FromMilliseconds(200), onKestrel: true);
+        host.Store.Gate = new TaskCompletionSource().Task;
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+        // Act
+        var first = await host.Client.GetAsync("/audited/empty", timeout.Token);
+        var second = await host.Client.GetAsync("/audited/empty", timeout.Token);
+        var error = await host.Logs.WaitForErrorAsync<RequestAuditMiddleware>();
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, second.StatusCode);
+        Assert.Equal("The request audit entry could not be saved.", error.Message);
+        Assert.IsAssignableFrom<OperationCanceledException>(error.Exception);
+        Assert.Empty(host.Store.Entries);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_SaveTimeout_CancelsTheTokenGivenToTheStore()
+    {
+        // Arrange
+        var timeProvider = new ManualTimerProvider();
+        var logs = new RecordingLoggerProvider();
+        using var loggerFactory = new LoggerFactory([logs]);
+        CancellationToken saveToken = default;
+        var store = new Mock<IRequestAuditStore>();
+        store.Setup(s => s.SaveAsync(It.IsAny<RequestAuditEntry>(), It.IsAny<CancellationToken>()))
+            .Returns<RequestAuditEntry, CancellationToken>((_, token) =>
+            {
+                saveToken = token;
+                return Task.Delay(Timeout.Infinite, token);
+            });
+        var responseFeature = new CompletableResponseFeature();
+        var context = new DefaultHttpContext();
+        context.Features.Set<IHttpResponseFeature>(responseFeature);
+        context.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(new AuditRequestAttribute()), "test"));
+        var middleware = new RequestAuditMiddleware(
+            _ => Task.CompletedTask,
+            store.Object,
+            Options.Create(new RequestAuditOptions { SaveTimeout = TimeSpan.FromSeconds(7) }),
+            timeProvider,
+            loggerFactory.CreateLogger<RequestAuditMiddleware>());
+        await middleware.InvokeAsync(context);
+
+        // Act
+        var completing = responseFeature.CompleteAsync();
+        var cancelledBeforeTimeout = saveToken.IsCancellationRequested;
+        timeProvider.Fire();
+        await completing;
+        var error = await logs.WaitForErrorAsync<RequestAuditMiddleware>();
+
+        // Assert
+        Assert.Equal(TimeSpan.FromSeconds(7), timeProvider.DueTime);
+        Assert.False(cancelledBeforeTimeout);
+        Assert.True(saveToken.IsCancellationRequested);
+        Assert.Equal("The request audit entry could not be saved.", error.Message);
+        Assert.IsAssignableFrom<OperationCanceledException>(error.Exception);
     }
 
     private static StringContent Json(string body) => new(body, Encoding.UTF8, "application/json");
@@ -477,6 +570,23 @@ public class RequestAuditMiddlewareTests
             foreach (var (callback, state) in _completed)
                 await callback(state);
         }
+    }
+
+    /// <summary>Records the timer created for the save timeout and fires it when the test says so.</summary>
+    private sealed class ManualTimerProvider : TimeProvider
+    {
+        private TimerCallback? _callback;
+        private object? _state;
+
+        public TimeSpan DueTime { get; private set; }
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            (_callback, _state, DueTime) = (callback, state, dueTime);
+            return new Mock<ITimer>().Object;
+        }
+
+        public void Fire() => _callback!(_state);
     }
 
     /// <summary>A body whose length is unknown beforehand, so it is sent without Content-Length.</summary>

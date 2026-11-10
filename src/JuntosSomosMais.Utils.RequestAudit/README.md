@@ -54,20 +54,27 @@ app.MapPost("/orders", handler).WithMetadata(new AuditRequestAttribute());
 
 | What | Rule |
 |---|---|
-| Headers in `SensitiveHeaders` | Value replaced by `***`. Default: `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`. |
+| Headers in `SensitiveHeaders` | Value replaced by `***`. Default: `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, `X-Auth-Token`, `X-Access-Token`, `Api-Key`. |
 | JSON properties (any depth), form fields and query parameters in `SensitiveFields` | Value replaced by `***`. Default: `password`, `secret`, `client_secret`, `token`, `access_token`, `refresh_token`, `cpf`, `email`, `phone`. |
 
-Names are compared ignoring case. Add your own to either set.
+Header names are compared exactly, ignoring case. Field names are compared on a normalized form, on both sides: the last segment of the key (after the last `.` or `[`, numeric indexes skipped), without `_` and `-`, ignoring case. So `access_token` also masks `accessToken`, `AccessToken` and `access-token`, and `password` also masks the model-bound keys `Input.Password` and `user[password]`. Add your own to either set.
+
+Not masked:
+
+- the URL path (only the query string goes through `SensitiveFields`), so keep secrets out of route values;
+- the `Referer` header, which can carry another page's query string; add it to `SensitiveHeaders` if that matters.
+
+`CallerClaims` matches claim types as they are on the `ClaimsPrincipal`. With JwtBearer's default `MapInboundClaims = true`, the `sub` claim arrives as `ClaimTypes.NameIdentifier`, so either add that type to `CallerClaims` or set `MapInboundClaims = false`.
 
 A body is stored only when it can be masked: JSON (`application/json`, `+json`) and `application/x-www-form-urlencoded` (stored as a JSON object). It is **not** stored, and the `...BodyNote` field says why, when:
 
 - the content type is anything else (multipart, plain text, binary);
 - the JSON is invalid;
-- it is larger than `MaxBodyBytes` (default 32 KB), because a cut body cannot be parsed and masked.
+- it is larger than `MaxBodyBytes` (default 32 KB, at most 1 MB), because a cut body cannot be parsed and masked.
 
 ## Behavior to know
 
-- **The entry is saved after the response is sent** (`Response.OnCompleted`), so the caller does not wait for the store.
+- **The entry is saved after the response is sent** (`Response.OnCompleted`), so the caller does not wait for the store. On HTTP/1.1, the server reads the next request on the same connection only after the save, so a slow store can delay that request, but never longer than `SaveTimeout` (default 5 s): the save is then cancelled and the failure logged.
 - **Auditing never breaks the request.** If the store fails, the error is logged and the response is unaffected.
 - **Responses written by an exception handler are recorded**, also when the handler is placed before this middleware.
 - **The response is never buffered.** It is copied while it is written, up to `MaxBodyBytes`.
@@ -79,7 +86,8 @@ A body is stored only when it can be masked: JSON (`application/json`, `+json`) 
 | Option | Default | Meaning |
 |---|---|---|
 | `Enabled` | `true` | Turns the auditing on or off. |
-| `MaxBodyBytes` | `32768` | Largest body stored. |
+| `MaxBodyBytes` | `32768` | Largest body stored. Must be between 1 and `MaxBodyBytesLimit` (1048576). |
+| `SaveTimeout` | `00:00:05` | Longest wait for the store; the save is then cancelled and logged. Must be positive. |
 | `ClientIpHeader` | `null` | Header holding the caller address behind a proxy. |
 | `SensitiveHeaders` | see above | Headers masked. |
 | `SensitiveFields` | see above | Fields masked. |

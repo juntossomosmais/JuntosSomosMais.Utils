@@ -19,8 +19,8 @@ namespace JuntosSomosMais.Utils.RequestAudit.Tests.Support;
 
 /// <summary>
 /// Minimal app with the audit middleware in its documented position (after routing, before authentication), a store
-/// kept in memory and a few endpoints. It depends on nothing but ASP.NET Core and the library. It runs on the
-/// in-memory test server, or on Kestrel (a free local port) to cover what only a real server does.
+/// kept in memory and a few endpoints. It runs on the in-memory test server, or on Kestrel (a free local port) to
+/// cover what only a real server does.
 /// </summary>
 internal sealed class RequestAuditTestHost : IAsyncDisposable
 {
@@ -29,6 +29,7 @@ internal sealed class RequestAuditTestHost : IAsyncDisposable
     public const string TraceIdHeader = "X-Trace-Id";
     public const string LargeResponse = """{"data":"0123456789012345678901234567890123456789012345678901234567890123456789"}""";
     public const string HandledErrorBody = """{"type":"RULE","token":"abc"}""";
+    public const string TrailingWrite = "-tail";
 
     public static readonly DateTimeOffset Now = new(2026, 11, 10, 12, 30, 0, TimeSpan.Zero);
 
@@ -49,7 +50,10 @@ internal sealed class RequestAuditTestHost : IAsyncDisposable
     public HttpClient Client { get; }
 
     public static async Task<RequestAuditTestHost> StartAsync(
-        Action<RequestAuditOptions>? configure = null, bool withExceptionHandler = false, bool onKestrel = false)
+        Action<RequestAuditOptions>? configure = null,
+        bool withExceptionHandler = false,
+        bool onKestrel = false,
+        bool withTrailingWrite = false)
     {
         var store = new InMemoryRequestAuditStore();
         var logs = new RecordingLoggerProvider();
@@ -70,6 +74,9 @@ internal sealed class RequestAuditTestHost : IAsyncDisposable
                 {
                     if (withExceptionHandler)
                         app.UseExceptionHandler(new ExceptionHandlerOptions { ExceptionHandler = WriteHandledErrorAsync });
+
+                    if (withTrailingWrite)
+                        app.Use(WriteAfterTheEndpointAsync);
 
                     app.UseRouting();
                     app.UseRequestAudit();
@@ -128,6 +135,12 @@ internal sealed class RequestAuditTestHost : IAsyncDisposable
 
     private static Task ThrowAsync(HttpContext context) => throw new InvalidOperationException("The endpoint failed.");
 
+    private static async Task WriteAfterTheEndpointAsync(HttpContext context, RequestDelegate next)
+    {
+        await next(context);
+        await context.Response.WriteAsync(TrailingWrite);
+    }
+
     private static async Task WriteHandledErrorAsync(HttpContext context)
     {
         context.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
@@ -136,23 +149,35 @@ internal sealed class RequestAuditTestHost : IAsyncDisposable
     }
 }
 
-/// <summary>Keeps the entries in memory. The entry is saved after the response is sent, so tests wait for it.</summary>
+/// <summary>
+/// Keeps the entries in memory. The entry is saved after the response is sent, so tests wait for it. While
+/// <see cref="Gate"/> is not completed, every save waits for it.
+/// </summary>
 internal sealed class InMemoryRequestAuditStore : IRequestAuditStore
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 
+    private readonly ConcurrentQueue<RequestAuditEntry> _entries = new();
     private readonly TaskCompletionSource<RequestAuditEntry> _saved = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private int _calls;
 
-    /// <summary>When set, every save fails with it.</summary>
     public Exception? Failure { get; set; }
 
-    public Task SaveAsync(RequestAuditEntry entry, CancellationToken cancellationToken = default)
+    public Task Gate { get; set; } = Task.CompletedTask;
+
+    public int Calls => Volatile.Read(ref _calls);
+
+    public IReadOnlyCollection<RequestAuditEntry> Entries => _entries;
+
+    public async Task SaveAsync(RequestAuditEntry entry, CancellationToken cancellationToken = default)
     {
+        Interlocked.Increment(ref _calls);
+        await Gate.WaitAsync(cancellationToken);
         if (Failure is not null)
             throw Failure;
 
+        _entries.Enqueue(entry);
         _saved.TrySetResult(entry);
-        return Task.CompletedTask;
     }
 
     public Task<RequestAuditEntry> WaitForEntryAsync() => _saved.Task.WaitAsync(Timeout);
@@ -184,26 +209,34 @@ internal sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
     public override DateTimeOffset GetUtcNow() => now;
 }
 
-/// <summary>Records what is logged and lets a test wait for the first error of a category.</summary>
+/// <summary>Records what the library logs and lets a test wait for the first record of a category and level.</summary>
 internal sealed class RecordingLoggerProvider : ILoggerProvider
 {
+    private const string LibraryNamespace = "JuntosSomosMais.Utils.RequestAudit.";
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 
-    private readonly ConcurrentDictionary<string, TaskCompletionSource<LogRecord>> _errors = new();
+    private readonly ConcurrentQueue<LogRecord> _records = new();
+    private readonly ConcurrentDictionary<(string, LogLevel), TaskCompletionSource<LogRecord>> _firsts = new();
+
+    public IReadOnlyCollection<LogRecord> Records => _records;
 
     public ILogger CreateLogger(string categoryName) => new RecordingLogger(this, categoryName);
 
-    public Task<LogRecord> WaitForErrorAsync<TCategory>() => ErrorOf(typeof(TCategory).FullName!).Task.WaitAsync(Timeout);
+    public Task<LogRecord> WaitForErrorAsync<TCategory>() => WaitForAsync<TCategory>(LogLevel.Error);
+
+    public Task<LogRecord> WaitForAsync<TCategory>(LogLevel level) =>
+        FirstOf(typeof(TCategory).FullName!, level).Task.WaitAsync(Timeout);
 
     public void Dispose()
     {
         // Nothing to release.
     }
 
-    private TaskCompletionSource<LogRecord> ErrorOf(string category) =>
-        _errors.GetOrAdd(category, _ => new TaskCompletionSource<LogRecord>(TaskCreationOptions.RunContinuationsAsynchronously));
+    private TaskCompletionSource<LogRecord> FirstOf(string category, LogLevel level) =>
+        _firsts.GetOrAdd(
+            (category, level), _ => new TaskCompletionSource<LogRecord>(TaskCreationOptions.RunContinuationsAsynchronously));
 
-    internal sealed record LogRecord(LogLevel Level, string Message, Exception? Exception);
+    internal sealed record LogRecord(string Category, LogLevel Level, string Message, Exception? Exception);
 
     private sealed class RecordingLogger(RecordingLoggerProvider provider, string category) : ILogger
     {
@@ -214,8 +247,12 @@ internal sealed class RecordingLoggerProvider : ILoggerProvider
         public void Log<TState>(
             LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
-            if (logLevel == LogLevel.Error)
-                provider.ErrorOf(category).TrySetResult(new LogRecord(logLevel, formatter(state, exception), exception));
+            if (!category.StartsWith(LibraryNamespace, StringComparison.Ordinal))
+                return;
+
+            var record = new LogRecord(category, logLevel, formatter(state, exception), exception);
+            provider._records.Enqueue(record);
+            provider.FirstOf(category, logLevel).TrySetResult(record);
         }
     }
 }

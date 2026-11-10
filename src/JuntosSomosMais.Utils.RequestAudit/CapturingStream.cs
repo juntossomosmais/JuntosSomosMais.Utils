@@ -1,9 +1,6 @@
 namespace JuntosSomosMais.Utils.RequestAudit;
 
-/// <summary>
-/// Write-only stream that sends everything to <paramref name="inner"/> and keeps a copy of the first
-/// <paramref name="limit"/> bytes. It never buffers: what it captured is what was written to the response.
-/// </summary>
+/// <summary>Write-through stream that keeps a copy of the first <paramref name="limit"/> bytes.</summary>
 internal sealed class CapturingStream(Stream inner, int limit) : Stream
 {
     private readonly MemoryStream _captured = new();
@@ -12,7 +9,6 @@ internal sealed class CapturingStream(Stream inner, int limit) : Stream
     /// <summary>More than the limit was written, so <see cref="Captured"/> is incomplete.</summary>
     public bool Truncated => _total > limit;
 
-    /// <summary>The first bytes written, up to the limit.</summary>
     public byte[] Captured => _captured.ToArray();
 
     public override bool CanRead => false;

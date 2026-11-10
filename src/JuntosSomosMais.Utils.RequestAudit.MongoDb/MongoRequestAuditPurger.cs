@@ -41,8 +41,7 @@ public sealed class MongoRequestAuditPurger(
         return new RequestAuditPurgeResult(deleted, deleted, false, pinnedTo);
     }
 
-    // Selects the ids of one batch through the CreatedAtUtc index, then deletes exactly those entries: each round
-    // trip is bounded, so a large purge never holds one long-running delete on the collection or the oplog.
+    // Deletes by batches of ids.
     private static async Task<long> DeleteInBatchesAsync(
         IMongoCollection<BsonDocument> collection, FilterDefinition<BsonDocument> filter, int batchSize, CancellationToken cancellationToken)
     {

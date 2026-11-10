@@ -29,7 +29,6 @@ public sealed record PurgeRequestAuditArgs(DateTime? FromUtc, DateTime? ToUtc, b
         return parsed.Build(utcNow);
     }
 
-    /// <summary>The values seen so far, filled one argument at a time.</summary>
     private sealed class Accumulator
     {
         private readonly HashSet<string> _seen = new(StringComparer.OrdinalIgnoreCase);
@@ -38,7 +37,6 @@ public sealed record PurgeRequestAuditArgs(DateTime? FromUtc, DateTime? ToUtc, b
         private int? _olderThanDays;
         private bool _dryRun;
 
-        /// <summary>Validates one argument (known, not repeated, valued) and records it.</summary>
         public void Add(string arg)
         {
             var (name, value) = Split(arg);
@@ -59,7 +57,6 @@ public sealed record PurgeRequestAuditArgs(DateTime? FromUtc, DateTime? ToUtc, b
             Apply(name, value);
         }
 
-        /// <summary>Checks the arguments against each other and applies the default interval.</summary>
         public PurgeRequestAuditArgs Build(DateTime utcNow)
         {
             if (_olderThanDays.HasValue && (_from.HasValue || _to.HasValue))
