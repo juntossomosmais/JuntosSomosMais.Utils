@@ -141,4 +141,39 @@ public class CustomExceptionHandlerLogLevelTests : IClassFixture<LoggingWebAppFa
         Assert.Equal(LogLevel.Error, middlewareEntry.Level);
 #endif
     }
+
+#if NET10_0_OR_GREATER
+    // With SuppressDiagnosticsCallback returning false, .NET 10 emits the middleware entry again, as .NET 8 does.
+    public class WithDiagnosticsKept : IClassFixture<KeepDiagnosticsWebAppFactory>
+    {
+        private readonly HttpClient _client;
+        private readonly FakeLogCollector _logCollector;
+
+        public WithDiagnosticsKept(KeepDiagnosticsWebAppFactory factory)
+        {
+            _client = factory.CreateClient();
+            _logCollector = factory.LogCollector;
+            _logCollector.Clear();
+        }
+
+        [Fact(DisplayName = "Should write the middleware Error entry like .NET 8 when diagnostics are kept")]
+        public async Task TryHandleAsync_HandledExceptionWithDiagnosticsKept_ShouldLogMiddlewareError()
+        {
+            // Arrange
+            const string exceptionMessage = "Customer not found";
+
+            // Act
+            var response = await _client.GetAsync("/customer/not-found");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            var handlerEntry = Assert.Single(_logCollector.Entries, e =>
+                e.CategoryName == HandlerCategory && e.Message.Contains(exceptionMessage));
+            Assert.Equal(LogLevel.Debug, handlerEntry.Level);
+            var middlewareEntry = Assert.Single(_logCollector.Entries, e =>
+                e.CategoryName == MiddlewareCategory && e.Exception?.Message == exceptionMessage);
+            Assert.Equal(LogLevel.Error, middlewareEntry.Level);
+        }
+    }
+#endif
 }
