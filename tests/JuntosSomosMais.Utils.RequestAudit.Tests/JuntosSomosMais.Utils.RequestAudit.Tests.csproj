@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="8.0.0" />
+    <PackageReference Include="Moq" Version="4.20.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\JuntosSomosMais.Utils.RequestAudit\JuntosSomosMais.Utils.RequestAudit.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="Moq" />
+  </ItemGroup>
+</Project>

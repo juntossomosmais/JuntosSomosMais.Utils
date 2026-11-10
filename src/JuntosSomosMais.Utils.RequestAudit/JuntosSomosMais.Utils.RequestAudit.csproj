@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>JuntosSomosMais.Utils.RequestAudit</RootNamespace>
+    <Description>Opt-in HTTP request auditing for ASP.NET Core: records who called an endpoint, with what and what was answered, masking sensitive data before it is stored. Storage is pluggable.</Description>
+    <PackageId>JuntosSomosMais.Utils.RequestAudit</PackageId>
+    <PackageTags>audit request logging aspnetcore middleware</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <MinVerTagPrefix>requestaudit/v</MinVerTagPrefix>
+    <LangVersion>12</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="JuntosSomosMais.Utils.RequestAudit.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

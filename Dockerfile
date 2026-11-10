@@ -19,6 +19,10 @@ COPY src/JuntosSomosMais.Utils.SimpleHistory/*.csproj src/JuntosSomosMais.Utils.
 COPY tests/JuntosSomosMais.Utils.SimpleHistory.Tests/*.csproj tests/JuntosSomosMais.Utils.SimpleHistory.Tests/packages.lock.json tests/JuntosSomosMais.Utils.SimpleHistory.Tests/
 COPY src/JuntosSomosMais.Utils.SimpleHistory.MongoDb/*.csproj src/JuntosSomosMais.Utils.SimpleHistory.MongoDb/packages.lock.json src/JuntosSomosMais.Utils.SimpleHistory.MongoDb/
 COPY tests/JuntosSomosMais.Utils.SimpleHistory.MongoDb.Tests/*.csproj tests/JuntosSomosMais.Utils.SimpleHistory.MongoDb.Tests/packages.lock.json tests/JuntosSomosMais.Utils.SimpleHistory.MongoDb.Tests/
+COPY src/JuntosSomosMais.Utils.RequestAudit/*.csproj src/JuntosSomosMais.Utils.RequestAudit/packages.lock.json src/JuntosSomosMais.Utils.RequestAudit/
+COPY tests/JuntosSomosMais.Utils.RequestAudit.Tests/*.csproj tests/JuntosSomosMais.Utils.RequestAudit.Tests/packages.lock.json tests/JuntosSomosMais.Utils.RequestAudit.Tests/
+COPY src/JuntosSomosMais.Utils.RequestAudit.MongoDb/*.csproj src/JuntosSomosMais.Utils.RequestAudit.MongoDb/packages.lock.json src/JuntosSomosMais.Utils.RequestAudit.MongoDb/
+COPY tests/JuntosSomosMais.Utils.RequestAudit.MongoDb.Tests/*.csproj tests/JuntosSomosMais.Utils.RequestAudit.MongoDb.Tests/packages.lock.json tests/JuntosSomosMais.Utils.RequestAudit.MongoDb.Tests/
 RUN dotnet restore --locked-mode
 
 # Tools used during development
