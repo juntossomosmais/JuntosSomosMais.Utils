@@ -21,8 +21,10 @@
     <PackageReference Include="Hangfire.Core" Version="1.8.23" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.3" />
     <!-- Built against the 2.x line, which ships MongoDB.Driver.Core as its own assembly; 3.0 merged it into
-         MongoDB.Driver, so this build would fail to load there. The upper bound makes NuGet warn at install time. -->
-    <PackageReference Include="MongoDB.Driver" Version="[2.30.0,3.0.0)" />
+         MongoDB.Driver, so only the MongoDB check fails to load on 3.x. No upper bound on purpose: services that
+         get MongoDB.Driver 3.x from another package (e.g. JuntosSomosMais.Ziggurat.MongoDB) and register only the
+         other checks work today, and a [2.30.0,3.0.0) range turns that into a restore error (NU1107). -->
+    <PackageReference Include="MongoDB.Driver" Version="2.30.0" />
     <PackageReference Include="NRedisStack" Version="0.13.3" />
     <PackageReference Include="RabbitMQ.Client" Version="7.2.1" />
     <!-- Transitive floors with known vulnerabilities, pinned to the fixed versions until the parents move past them:

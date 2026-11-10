@@ -20,7 +20,7 @@ Every package ships a build per framework, and NuGet picks the one that matches 
 | Package | Target frameworks | Notable dependencies |
 |---|---|---|
 | `JuntosSomosMais.Utils.GlobalExceptionHandler` | `net8.0`, `net10.0` | ASP.NET Core shared framework, `FluentValidation` 11+ |
-| `JuntosSomosMais.Utils.HealthChecks` | `net8.0`, `net10.0` | `MongoDB.Driver` **2.x** (`[2.30.0, 3.0.0)`, see [Requirements](#requirements)), `RabbitMQ.Client` 7, `Microsoft.Data.SqlClient` 5+ |
+| `JuntosSomosMais.Utils.HealthChecks` | `net8.0`, `net10.0` | `MongoDB.Driver` 2.30.0+ (the MongoDB check needs **2.x**, see [Requirements](#requirements)), `RabbitMQ.Client` 7, `Microsoft.Data.SqlClient` 5+ |
 | `JuntosSomosMais.Utils.Instrumentation` | `net8.0`, `net10.0` | `FluentValidation` 11+, `JuntosSomosMais.Ziggurat` |
 | `JuntosSomosMais.Utils.Cnpj` | `net8.0`, `net10.0` | none |
 | `JuntosSomosMais.Utils.SimpleHistory` | `net6.0`, `net8.0`, `net10.0` | `Microsoft.Extensions.*` 8.x on `net6.0`/`net8.0`, 10.x on `net10.0` |
@@ -46,7 +46,7 @@ Provides reusable `IHealthCheck` implementations and a standardized JSON respons
 
 - .NET 8 or .NET 10
 - Dependencies are pulled transitively: `Hangfire.Core`, `Microsoft.Data.SqlClient`, `RabbitMQ.Client`, `NRedisStack`, `Azure.Storage.Blobs`, `Azure.Messaging.ServiceBus`, `MongoDB.Driver`
-- `MongoDB.Driver` **2.x**. The package is compiled against the 2.x line, where `MongoDB.Driver.Core` is a separate assembly; 3.0 merged it into `MongoDB.Driver`. A service that references `MongoDB.Driver` 3.x would fail with `FileNotFoundException: MongoDB.Driver.Core` as soon as a health check runs, on .NET 8 and .NET 10 alike, so the dependency is declared as `[2.30.0, 3.0.0)` and NuGet warns (NU1608) when a service on 3.x installs the package. Support for 3.x will come as a separate release.
+- `MongoDB.Driver` **2.x** for the MongoDB check. The package is compiled against the 2.x line, where `MongoDB.Driver.Core` is a separate assembly; 3.0 merged it into `MongoDB.Driver`. On a service that resolves `MongoDB.Driver` 3.x, `AddMongoDbHealthCheck` fails with `FileNotFoundException: MongoDB.Driver.Core` as soon as the check runs, on .NET 8 and .NET 10 alike; the other checks are not affected. The dependency has no upper bound on purpose: services that get `MongoDB.Driver` 3.x from another package and register only the other checks keep restoring and running. Support for 3.x in the MongoDB check will come as a separate release.
 
 ### Available health checks
 

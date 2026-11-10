@@ -56,7 +56,7 @@
       },
       "MongoDB.Driver": {
         "type": "Direct",
-        "requested": "[2.30.0, 3.0.0)",
+        "requested": "[2.30.0, )",
         "resolved": "2.30.0",
         "contentHash": "BCG8cNF0+U3h5f/O9fu3ktrYhoESBDems1w06PExfYrn2KjHBHCBdvBRY1cIbysnZVjQAJjGtFV9XgW+hXt7Hg==",
         "dependencies": {
@@ -390,7 +390,7 @@
       },
       "MongoDB.Driver": {
         "type": "Direct",
-        "requested": "[2.30.0, 3.0.0)",
+        "requested": "[2.30.0, )",
         "resolved": "2.30.0",
         "contentHash": "BCG8cNF0+U3h5f/O9fu3ktrYhoESBDems1w06PExfYrn2KjHBHCBdvBRY1cIbysnZVjQAJjGtFV9XgW+hXt7Hg==",
         "dependencies": {
