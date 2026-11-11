@@ -14,7 +14,7 @@ public class PurgeRequestAuditArgsTests
         var parsed = PurgeRequestAuditArgs.Parse(args, Now);
 
         // Assert
-        Assert.Equal(new PurgeRequestAuditArgs(null, Now.AddDays(-365), false), parsed);
+        Assert.Equal(new PurgeRequestAuditArgs(null, Now.AddDays(-30), false), parsed);
         Assert.Equal(DateTimeKind.Utc, parsed.ToUtc!.Value.Kind);
     }
 

@@ -5,7 +5,8 @@ namespace JuntosSomosMais.Utils.RequestAudit;
 /// <summary>
 /// Command-line front end of <see cref="IRequestAuditPurger"/> (retention): <c>[--from=&lt;date&gt;]
 /// [--to=&lt;date&gt;] [--older-than-days=&lt;N&gt;] [--dry-run]</c>. With no arguments it deletes the entries older
-/// than <see cref="PurgeRequestAuditArgs.DefaultOlderThanDays"/> days.
+/// than <see cref="PurgeRequestAuditArgs.DefaultOlderThanDays"/> (30) days. Nothing expires by itself: schedule it
+/// (for example a daily Kubernetes CronJob) with the retention agreed with Product and Legal.
 /// </summary>
 public static class PurgeRequestAuditCommand
 {

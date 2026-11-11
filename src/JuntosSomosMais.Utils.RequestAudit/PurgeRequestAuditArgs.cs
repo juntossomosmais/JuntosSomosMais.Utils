@@ -9,7 +9,7 @@ namespace JuntosSomosMais.Utils.RequestAudit;
 public sealed record PurgeRequestAuditArgs(DateTime? FromUtc, DateTime? ToUtc, bool DryRun)
 {
     /// <summary>Age of the entries deleted when no interval is given.</summary>
-    public const int DefaultOlderThanDays = 365;
+    public const int DefaultOlderThanDays = 30;
 
     private const string FromArg = "--from";
     private const string ToArg = "--to";
