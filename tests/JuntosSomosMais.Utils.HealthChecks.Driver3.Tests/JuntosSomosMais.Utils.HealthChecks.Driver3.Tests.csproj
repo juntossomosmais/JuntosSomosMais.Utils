@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Services that get MongoDB.Driver 3.x transitively (JuntosSomosMais.Ziggurat.MongoDB 0.1.0-test.2 resolves 3.1.0)
+    also reference this package. This project loads the package's 2.x-compiled assembly next to the 3.x driver.
+    NU1608 as an error makes restore fail if the package gets an upper bound below 3.0 again.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <WarningsAsErrors>$(WarningsAsErrors);NU1608</WarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="MongoDB.Driver" Version="3.1.0" />
+    <PackageReference Include="Moq" Version="4.20.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\JuntosSomosMais.Utils.HealthChecks\JuntosSomosMais.Utils.HealthChecks.csproj" />
+  </ItemGroup>
+</Project>
