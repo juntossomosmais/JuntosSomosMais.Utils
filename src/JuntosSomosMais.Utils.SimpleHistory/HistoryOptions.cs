@@ -6,8 +6,6 @@ namespace JuntosSomosMais.Utils.SimpleHistory;
 /// </summary>
 public class HistoryOptions
 {
-    private string? _historyName;
-
     /// <param name="sourceName">Name of the source whose changes are recorded.</param>
     public HistoryOptions(string sourceName)
     {
@@ -22,8 +20,8 @@ public class HistoryOptions
     /// <summary>Store that receives the history rows. Defaults to <c>{SourceName}History</c>.</summary>
     public string HistoryName
     {
-        get => _historyName ?? (SourceName + "History");
-        set => _historyName = value;
+        get => field ?? (SourceName + "History");
+        set;
     }
 
     /// <summary>Store holding the resume position, one entry per source. Shared by all sources.</summary>
