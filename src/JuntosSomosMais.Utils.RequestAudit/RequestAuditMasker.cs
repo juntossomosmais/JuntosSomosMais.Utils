@@ -12,6 +12,9 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
 {
     internal const string Mask = "***";
 
+    /// <summary>How many levels of JSON held in a string value (inside another such string) are parsed and masked.</summary>
+    internal const int MaxEmbeddedJsonDepth = 3;
+
     private static readonly JsonSerializerOptions JsonOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
     private static readonly char[] KeySeparators = ['.', '[', ']'];
 
@@ -72,6 +75,7 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
         var normalized = NormalizeFieldName(name);
         return _sensitiveFields.Contains(normalized)
                || (normalized.EndsWith('s') && _sensitiveFields.Contains(normalized[..^1]))
+               || (normalized.EndsWith("es", StringComparison.Ordinal) && _sensitiveFields.Contains(normalized[..^2]))
                || ContainsSensitivePart(normalized);
     }
 
@@ -82,8 +86,7 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
     {
         try
         {
-            var node = JsonNode.Parse(body);
-            MaskNode(node);
+            var node = MaskNode(JsonNode.Parse(body), embeddedDepth: 0);
             return (node?.ToJsonString(JsonOptions) ?? "null", null);
         }
         catch (Exception ex) when (ex is JsonException or ArgumentException)
@@ -93,22 +96,65 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
         }
     }
 
-    private void MaskNode(JsonNode? node)
+    /// <summary>Masks the node in place and returns it, or returns the node replacing it (a masked embedded JSON).</summary>
+    private JsonNode? MaskNode(JsonNode? node, int embeddedDepth)
     {
-        if (node is JsonArray array)
+        switch (node)
         {
-            foreach (var item in array)
-                MaskNode(item);
+            case JsonArray array:
+                for (var index = 0; index < array.Count; index++)
+                {
+                    var item = array[index];
+                    var masked = MaskNode(item, embeddedDepth);
+                    if (!ReferenceEquals(masked, item))
+                        array[index] = masked;
+                }
+
+                return array;
+
+            case JsonObject json:
+                foreach (var name in json.Select(property => property.Key).ToList())
+                {
+                    if (IsSensitiveField(name))
+                    {
+                        json[name] = Mask;
+                        continue;
+                    }
+
+                    var child = json[name];
+                    var masked = MaskNode(child, embeddedDepth);
+                    if (!ReferenceEquals(masked, child))
+                        json[name] = masked;
+                }
+
+                return json;
+
+            case JsonValue value when embeddedDepth < MaxEmbeddedJsonDepth && value.TryGetValue<string>(out var text):
+                return MaskEmbeddedJson(text, embeddedDepth + 1) is { } maskedText ? JsonValue.Create(maskedText) : value;
+
+            default:
+                return node;
         }
-        else if (node is JsonObject json)
+    }
+
+    /// <summary>
+    /// Masks a string value holding a JSON object or array (common in webhooks) and returns it re-serialized, or
+    /// null when it is not such a value.
+    /// </summary>
+    private string? MaskEmbeddedJson(string text, int embeddedDepth)
+    {
+        var trimmed = text.AsSpan().TrimStart();
+        if (trimmed.IsEmpty || trimmed[0] is not ('{' or '['))
+            return null;
+
+        try
         {
-            foreach (var name in json.Select(property => property.Key).ToList())
-            {
-                if (IsSensitiveField(name))
-                    json[name] = Mask;
-                else
-                    MaskNode(json[name]);
-            }
+            return MaskNode(JsonNode.Parse(text), embeddedDepth)?.ToJsonString(JsonOptions);
+        }
+        catch (Exception ex) when (ex is JsonException or ArgumentException)
+        {
+            // Not JSON after all: kept as received.
+            return null;
         }
     }
 

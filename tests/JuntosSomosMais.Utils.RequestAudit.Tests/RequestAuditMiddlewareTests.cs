@@ -13,6 +13,7 @@ namespace JuntosSomosMais.Utils.RequestAudit.Tests;
 public class RequestAuditMiddlewareTests
 {
     private const string EchoRoute = "/audited/echo";
+    private const string TraceParent = "00-11111111111111111111111111111111-2222222222222222-01";
 
     [Fact]
     public async Task InvokeAsync_AuditedJsonRequest_SavesEveryField()
@@ -23,8 +24,8 @@ public class RequestAuditMiddlewareTests
         {
             Content = Json("""{"key":"value","password":"p"}"""),
         };
-        request.Headers.TryAddWithoutValidation("traceparent", "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01");
-        request.Headers.TryAddWithoutValidation("Authorization", "Bearer secret");
+        request.Headers.TryAddWithoutValidation("traceparent", TraceParent);
+        request.Headers.TryAddWithoutValidation("Authorization", "Bearer x");
         request.Headers.TryAddWithoutValidation("True-Client-IP", "203.0.113.7");
         request.Headers.TryAddWithoutValidation(RequestAuditTestHost.UserHeader, "user-1");
 
@@ -60,7 +61,7 @@ public class RequestAuditMiddlewareTests
         Assert.Equal("""{"key":"value","password":"***"}""", entry.ResponseBody);
         Assert.Null(entry.ResponseBodyNote);
         Assert.Equal(traceId, entry.RequestId);
-        Assert.Equal("00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01", entry.TraceParent);
+        Assert.Equal(TraceParent, entry.TraceParent);
         Assert.Equal(new Dictionary<string, string> { ["sub"] = "user-1", ["client_id"] = "client-1" }, entry.Caller);
     }
 
@@ -112,15 +113,15 @@ public class RequestAuditMiddlewareTests
     {
         // Arrange
         await using var host = await RequestAuditTestHost.StartAsync();
-        var content = new StringContent("password=secret", Encoding.UTF8, "text/plain");
+        var content = new StringContent("password=x", Encoding.UTF8, "text/plain");
 
         // Act
         var response = await host.Client.PostAsync(EchoRoute, content);
         var entry = await host.Store.WaitForEntryAsync();
 
         // Assert
-        const string note = "Not stored: content type 'text/plain; charset=utf-8' cannot be masked (15 bytes).";
-        Assert.Equal("password=secret", await response.Content.ReadAsStringAsync());
+        const string note = "Not stored: content type 'text/plain; charset=utf-8' cannot be masked (10 bytes).";
+        Assert.Equal("password=x", await response.Content.ReadAsStringAsync());
         Assert.Null(entry.RequestBody);
         Assert.Equal(note, entry.RequestBodyNote);
         Assert.Null(entry.ResponseBody);
@@ -285,7 +286,7 @@ public class RequestAuditMiddlewareTests
         // Arrange
         await using var host = await RequestAuditTestHost.StartAsync(onKestrel: true);
         var request = new HttpRequestMessage(HttpMethod.Post, EchoRoute + "?page=2") { Content = Json("""{"key":"value","password":"p"}""") };
-        request.Headers.TryAddWithoutValidation("Authorization", "Bearer secret");
+        request.Headers.TryAddWithoutValidation("Authorization", "Bearer x");
 
         // Act
         var response = await host.Client.SendAsync(request);
@@ -692,6 +693,25 @@ public class RequestAuditMiddlewareTests
         // Assert
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         Assert.Equal("true", Assert.Single(response.Headers.GetValues(RequestAuditTestHost.NotStartedHeader)));
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ResponseBodyWithSensitiveNestedKeys_SavesItMasked()
+    {
+        // Arrange
+        await using var host = await RequestAuditTestHost.StartAsync();
+        const string body = """{"customer":{"Name":"Ana","Email":"a@b.c","Address":{"Street":"Rua A"}},"payload":"{\"cpf\":\"1\"}"}""";
+
+        // Act
+        var response = await host.Client.PostAsync(EchoRoute, Json(body));
+        var entry = await host.Store.WaitForEntryAsync();
+
+        // Assert
+        const string masked = """{"customer":{"Name":"Ana","Email":"***","Address":"***"},"payload":"{\"cpf\":\"***\"}"}""";
+        Assert.Equal(body, await response.Content.ReadAsStringAsync());
+        Assert.Equal(masked, entry.RequestBody);
+        Assert.Equal(masked, entry.ResponseBody);
+        Assert.Null(entry.ResponseBodyNote);
     }
 
     private static StringContent Json(string body) => new(body, Encoding.UTF8, "application/json");

@@ -32,22 +32,30 @@ public sealed class RequestAuditOptions
     };
 
     /// <summary>
-    /// JSON properties (at any depth), form fields and query parameters whose value is masked. Names are compared
-    /// on their last segment (<c>Input.Password</c>, <c>user[password]</c>), ignoring case, <c>_</c> and <c>-</c>,
-    /// and also match their plural (<c>emails</c>).
+    /// JSON properties (at any depth, also inside JSON held in a string value), form fields and query parameters
+    /// whose value is masked. Names are compared exactly on their last segment (<c>Input.Address</c>,
+    /// <c>user[cep]</c>), ignoring case, <c>_</c> and <c>-</c>, and also match their plural (<c>emails</c>,
+    /// <c>addresses</c>). Short or ambiguous terms belong here, not in <see cref="SensitiveNameParts"/>: <c>rg</c> or
+    /// <c>cep</c> as parts would mask <c>orgId</c> or <c>accepted</c>.
     /// </summary>
     public ISet<string> SensitiveFields { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
-        "cpf", "cnpj", "email", "phone", "telefone", "celular", "cvv", "authorization",
+        "cpf", "cnpj", "cpfcnpj", "rg", "document", "documento", "inscricaoestadual",
+        "email", "phone", "telephone", "telefone", "celular", "mobile", "whatsapp",
+        "address", "endereco", "logradouro", "street", "postalcode", "zipcode", "cep", "district", "bairro",
+        "birthdate", "birthday", "datanascimento",
+        "cardnumber", "cvv", "cvc", "authorization",
     };
 
     /// <summary>
     /// Parts of a name that make any field or header containing them sensitive (<c>newPassword</c>,
-    /// <c>id_token</c>, <c>X-Client-Secret</c>). Compared on the same normalized form as <see cref="SensitiveFields"/>.
+    /// <c>id_token</c>, <c>X-Client-Secret</c>, <c>customerDocument</c>). Compared on the same normalized form as
+    /// <see cref="SensitiveFields"/>.
     /// </summary>
     public ISet<string> SensitiveNameParts { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "password", "senha", "secret", "token", "apikey",
+        "cpf", "cnpj", "email", "document", "phone", "telefone", "celular", "cardnumber", "birth", "nascimento",
     };
 
     /// <summary>Claim types copied from the authenticated user into the entry.</summary>

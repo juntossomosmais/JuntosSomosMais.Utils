@@ -30,10 +30,20 @@ public class RequestAuditExtensionsTests
             },
             options.SensitiveHeaders.Order(StringComparer.Ordinal));
         Assert.Equal(
-            new[] { "authorization", "celular", "cnpj", "cpf", "cvv", "email", "phone", "telefone" },
+            new[]
+            {
+                "address", "authorization", "bairro", "birthdate", "birthday", "cardnumber", "celular", "cep",
+                "cnpj", "cpf", "cpfcnpj", "cvc", "cvv", "datanascimento", "district", "document", "documento",
+                "email", "endereco", "inscricaoestadual", "logradouro", "mobile", "phone", "postalcode", "rg",
+                "street", "telefone", "telephone", "whatsapp", "zipcode",
+            },
             options.SensitiveFields.Order(StringComparer.Ordinal));
         Assert.Equal(
-            new[] { "apikey", "password", "secret", "senha", "token" },
+            new[]
+            {
+                "apikey", "birth", "cardnumber", "celular", "cnpj", "cpf", "document", "email", "nascimento",
+                "password", "phone", "secret", "senha", "telefone", "token",
+            },
             options.SensitiveNameParts.Order(StringComparer.Ordinal));
         Assert.Same(TimeProvider.System, provider.GetRequiredService<TimeProvider>());
     }

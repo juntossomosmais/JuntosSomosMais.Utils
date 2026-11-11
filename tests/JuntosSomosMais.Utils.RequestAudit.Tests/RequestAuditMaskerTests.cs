@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Primitives;
 
 namespace JuntosSomosMais.Utils.RequestAudit.Tests;
@@ -15,7 +16,7 @@ public class RequestAuditMaskerTests
         // Arrange
         var headers = new Dictionary<string, StringValues>
         {
-            ["authorization"] = "Bearer secret",
+            ["authorization"] = "Bearer x",
             ["X-API-KEY"] = "key",
             ["Accept"] = new StringValues(["application/json", "text/plain"]),
         };
@@ -150,13 +151,13 @@ public class RequestAuditMaskerTests
     public void MaskBody_UrlEncodedForm_IsStoredAsMaskedJsonObject()
     {
         // Arrange
-        var body = Bytes("key1=value+1&password=p%40ss&key2=a&key2=b");
+        var body = Bytes("key1=value+1&password=x&key2=a&key2=b&key3=a%40b");
 
         // Act
         var result = Masker.MaskBody("application/x-www-form-urlencoded; charset=utf-8", body, truncated: false);
 
         // Assert
-        Assert.Equal(("""{"key1":"value 1","password":"***","key2":"a,b"}""", null), result);
+        Assert.Equal(("""{"key1":"value 1","password":"***","key2":"a,b","key3":"a@b"}""", null), result);
     }
 
     [Theory]
@@ -167,13 +168,13 @@ public class RequestAuditMaskerTests
     public void MaskBody_ContentTypeThatCannotBeMasked_IsNotStored(string? contentType)
     {
         // Arrange
-        var body = Bytes("password=secret");
+        var body = Bytes("password=x");
 
         // Act
         var result = Masker.MaskBody(contentType, body, truncated: false);
 
         // Assert
-        Assert.Equal((null, $"Not stored: content type '{contentType}' cannot be masked (15 bytes)."), result);
+        Assert.Equal((null, $"Not stored: content type '{contentType}' cannot be masked (10 bytes)."), result);
     }
 
     [Fact]
@@ -315,6 +316,7 @@ public class RequestAuditMaskerTests
     [Theory]
     [InlineData("newPassword")]
     [InlineData("confirm_password")]
+    [InlineData("senha")]
     [InlineData("senhaAtual")]
     [InlineData("apiKey")]
     [InlineData("id_token")]
@@ -326,6 +328,16 @@ public class RequestAuditMaskerTests
     [InlineData("cvv")]
     [InlineData("cpfs")]
     [InlineData("Phones")]
+    [InlineData("rg")]
+    [InlineData("cep")]
+    [InlineData("address")]
+    [InlineData("addresses")]
+    [InlineData("street")]
+    [InlineData("district")]
+    [InlineData("bairro")]
+    [InlineData("logradouro")]
+    [InlineData("whatsapp")]
+    [InlineData("cvc")]
     public void MaskFields_DefaultSensitiveName_IsMasked(string name)
     {
         // Arrange
@@ -339,7 +351,7 @@ public class RequestAuditMaskerTests
     }
 
     [Theory]
-    [InlineData("address")]
+    [InlineData("class")]
     [InlineData("status")]
     [InlineData("s")]
     [InlineData("name")]
@@ -390,6 +402,206 @@ public class RequestAuditMaskerTests
 
         // Assert
         Assert.Equal(expected, normalized);
+    }
+
+    [Theory]
+    [InlineData("documento")]
+    [InlineData("cpfCnpj")]
+    [InlineData("customerDocument")]
+    [InlineData("userEmail")]
+    [InlineData("emails")]
+    [InlineData("phoneNumber")]
+    [InlineData("mobilePhone")]
+    [InlineData("cardNumber")]
+    [InlineData("birthDate")]
+    [InlineData("dataNascimento")]
+    [InlineData("telefoneComercial")]
+    public void MaskFields_FieldContainingASensitivePart_IsMasked(string name)
+    {
+        // Arrange
+        var fields = new Dictionary<string, StringValues> { [name] = "value" };
+
+        // Act
+        var masked = Masker.MaskFields(fields);
+
+        // Assert
+        Assert.Equal("***", masked[name]);
+    }
+
+    [Theory]
+    [InlineData("orgId")]
+    [InlineData("cargo")]
+    [InlineData("accepted")]
+    [InlineData("ipAddress")]
+    [InlineData("streetNumber")]
+    [InlineData("cvvRequired")]
+    [InlineData("name")]
+    [InlineData("nome")]
+    [InlineData("city")]
+    public void MaskFields_ExactOnlyName_DoesNotMatchInsideOtherNames(string name)
+    {
+        // Arrange
+        var fields = new Dictionary<string, StringValues> { [name] = "value" };
+
+        // Act
+        var masked = Masker.MaskFields(fields);
+
+        // Assert
+        Assert.Equal("value", masked[name]);
+    }
+
+    [Fact]
+    public void MaskBody_JsonWithDefaultSensitiveNames_MasksThem()
+    {
+        // Arrange
+        var body = Bytes("""
+            {"user":{"senha":"a","newPassword":"b","nome":"Ana"},"auth":{"id_token":"c","apiKey":"d"},"name":"Ana"}
+            """);
+
+        // Act
+        var result = Masker.MaskBody("application/json", body, truncated: false);
+
+        // Assert
+        Assert.Equal(
+            ("""{"user":{"senha":"***","newPassword":"***","nome":"Ana"},"auth":{"id_token":"***","apiKey":"***"},"name":"Ana"}""",
+                null),
+            result);
+    }
+
+    [Fact]
+    public void MaskBody_StargateCustomerDtoShapedResponse_MasksEveryPersonalField()
+    {
+        // Arrange
+        var body = Bytes("""
+            {"Id":42,"Name":"Loja Exemplo","Email":"loja@example.com","Telephone":"1130000000","Cnpj":"00000000000100",
+             "InscricaoEstadual":"110042490114","Address":"Rua A, 10","PostalCode":"01000000","District":"Centro",
+             "City":"São Paulo","State":"SP","Orders":[{"OrderId":7,"Status":"Paid","Total":10.5}]}
+            """);
+
+        // Act
+        var result = Masker.MaskBody("application/json; charset=utf-8", body, truncated: false);
+
+        // Assert
+        Assert.Equal(
+            ("""{"Id":42,"Name":"Loja Exemplo","Email":"***","Telephone":"***","Cnpj":"***","InscricaoEstadual":"***","Address":"***","PostalCode":"***","District":"***","City":"São Paulo","State":"SP","Orders":[{"OrderId":7,"Status":"Paid","Total":10.5}]}""",
+                null),
+            result);
+    }
+
+    [Fact]
+    public void MaskBody_ObjectUnderSensitiveName_IsMaskedWhole()
+    {
+        // Arrange
+        var body = Bytes("""{"address":{"street":"Rua A","city":"X"},"documents":[{"type":"rg","number":"1"}],"id":1}""");
+
+        // Act
+        var result = Masker.MaskBody("application/json", body, truncated: false);
+
+        // Assert
+        Assert.Equal(("""{"address":"***","documents":"***","id":1}""", null), result);
+    }
+
+    [Fact]
+    public void MaskBody_JsonEmbeddedInAString_IsMaskedAndKeptAsString()
+    {
+        // Arrange
+        var body = new JsonObject
+        {
+            ["event"] = "order.created",
+            ["payload"] = """ {"cpf":"123","order":{"id":7},"items":"[{\"email\":\"a@b.c\"}]"}""",
+            ["list"] = new JsonArray("""[{"phone":"1"},2]""", "plain"),
+        }.ToJsonString();
+
+        // Act
+        var (masked, note) = Masker.MaskBody("application/json", Bytes(body), truncated: false);
+
+        // Assert
+        Assert.Null(note);
+        var json = JsonNode.Parse(masked!)!;
+        Assert.Equal("order.created", json["event"]!.GetValue<string>());
+        Assert.Equal("""{"cpf":"***","order":{"id":7},"items":"[{\"email\":\"***\"}]"}""", json["payload"]!.GetValue<string>());
+        Assert.Equal("""[{"phone":"***"},2]""", json["list"]![0]!.GetValue<string>());
+        Assert.Equal("plain", json["list"]![1]!.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData("{not json")]
+    [InlineData("[1,")]
+    [InlineData("{\"cpf\":1,\"cpf\":2}")]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("cpf {\"cpf\":1}")]
+    public void MaskBody_InvalidJsonInAString_IsKept(string text)
+    {
+        // Arrange
+        var body = new JsonObject { ["note"] = text }.ToJsonString();
+
+        // Act
+        var (masked, note) = Masker.MaskBody("application/json", Bytes(body), truncated: false);
+
+        // Assert
+        Assert.Null(note);
+        Assert.Equal(text, JsonNode.Parse(masked!)!["note"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void MaskBody_JsonNestedInStringsBeyondTheDepthLimit_IsKept()
+    {
+        // Arrange
+        // Level 0 is the body; levels 1 to MaxEmbeddedJsonDepth are masked, the next one is kept as received.
+        var levels = RequestAuditMasker.MaxEmbeddedJsonDepth + 1;
+        var innermost = """{"cpf":"1"}""";
+        var text = innermost;
+        for (var level = levels - 1; level >= 0; level--)
+            text = new JsonObject { ["cpf"] = "1", ["inner"] = text }.ToJsonString();
+
+        // Act
+        var (masked, note) = Masker.MaskBody("application/json", Bytes(text), truncated: false);
+
+        // Assert
+        Assert.Null(note);
+        var node = JsonNode.Parse(masked!)!;
+        for (var level = 0; level < levels; level++)
+        {
+            Assert.Equal("***", node["cpf"]!.GetValue<string>());
+            node = JsonNode.Parse(node["inner"]!.GetValue<string>())!;
+        }
+
+        Assert.Equal(innermost, node.ToJsonString());
+    }
+
+    [Fact]
+    public void MaskFields_CustomSensitiveFieldAdded_IsMasked()
+    {
+        // Arrange
+        _options.SensitiveFields.Add("name");
+        _options.SensitiveFields.Add("nome");
+        var fields = new Dictionary<string, StringValues> { ["name"] = "Ana", ["customer.nome"] = "Ana", ["nickname"] = "A" };
+
+        // Act
+        var masked = Masker.MaskFields(fields);
+
+        // Assert
+        Assert.Equal(
+            new Dictionary<string, string> { ["name"] = "***", ["customer.nome"] = "***", ["nickname"] = "A" },
+            masked);
+    }
+
+    [Fact]
+    public void MaskFields_DefaultRemovedFromBothSets_IsNotMasked()
+    {
+        // Arrange
+        _options.SensitiveFields.Remove("email");
+        _options.SensitiveNameParts.Remove("email");
+        var fields = new Dictionary<string, StringValues> { ["email"] = "a@b.c", ["userEmail"] = "a@b.c", ["cpf"] = "1" };
+
+        // Act
+        var masked = Masker.MaskFields(fields);
+
+        // Assert
+        Assert.Equal(
+            new Dictionary<string, string> { ["email"] = "a@b.c", ["userEmail"] = "a@b.c", ["cpf"] = "***" },
+            masked);
     }
 
     private static byte[] Bytes(string text) => Encoding.UTF8.GetBytes(text.Trim());
