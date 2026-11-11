@@ -52,20 +52,56 @@ app.MapPost("/orders", handler).WithMetadata(new AuditRequestAttribute());
 
 ## Masking
 
+Masking is by **name**: the key of a JSON property, form field, query parameter or header decides whether its value is replaced by `***`. Values themselves are never inspected, so a CPF sent under a key the lists do not know (`"obs": "cpf 123..."`) is stored as received; add that key to the lists, or turn the body off for that service (see [Bodies](#bodies)).
+
 | What | Rule |
 |---|---|
-| Headers in `SensitiveHeaders` | Value replaced by `***`. Default: `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, `X-Auth-Token`, `X-Access-Token`, `Api-Key`. |
-| JSON properties (any depth), form fields and query parameters in `SensitiveFields` | Value replaced by `***`. Default: `cpf`, `cnpj`, `email`, `phone`, `telefone`, `celular`, `cvv`, `authorization`. |
-| Fields and headers whose name contains one of `SensitiveNameParts` | Value replaced by `***`. Default: `password`, `senha`, `secret`, `token`, `apikey`. |
+| Headers in `SensitiveHeaders` | Exact name, ignoring case. Default: `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, `X-Auth-Token`, `X-Access-Token`, `Api-Key`. |
+| Fields in `SensitiveFields` (**exact**) | The normalized name equals the term, or its plural (`s`/`es`). Default: `cpf`, `cnpj`, `cpfcnpj`, `rg`, `document`, `documento`, `inscricaoestadual`, `email`, `phone`, `telephone`, `telefone`, `celular`, `mobile`, `whatsapp`, `address`, `endereco`, `logradouro`, `street`, `postalcode`, `zipcode`, `cep`, `district`, `bairro`, `birthdate`, `birthday`, `datanascimento`, `cardnumber`, `cvv`, `cvc`, `authorization`. |
+| Fields and headers containing one of `SensitiveNameParts` (**contains**) | The normalized name contains the term anywhere. Default: `password`, `senha`, `secret`, `token`, `apikey`, `cpf`, `cnpj`, `email`, `document`, `phone`, `telefone`, `celular`, `cardnumber`, `birth`, `nascimento`. |
 
-Header names in `SensitiveHeaders` are compared exactly, ignoring case. Field names, and header names checked against `SensitiveNameParts`, are compared on a normalized form, on both sides: the last segment of the key (after the last `.` or `[`, numeric indexes skipped), without `_` and `-`, ignoring case. So `card_number` also masks `cardNumber` and `Payment.CardNumber`, a field in `SensitiveFields` also masks its plural (`emails`), and the part `token` masks `access_token`, `idToken`, `tokens` and `X-CSRF-Token`. Add your own to any of the sets.
+Field names, and header names checked against `SensitiveNameParts`, are compared on a normalized form, on both sides: the last segment of the key (after the last `.` or `[`, numeric indexes skipped), without `_` and `-`, ignoring case. So `card_number`, `cardNumber` and `Payment.CardNumber` are the same name, and:
+
+- **exact** (`SensitiveFields`): `email` masks `email`, `Email`, `emails`, `filter.email`; `address` masks `addresses`;
+- **contains** (`SensitiveNameParts`): `token` masks `access_token`, `idToken`, `X-CSRF-Token`; `document` masks `customerDocument`; `email` masks `userEmail`; `phone` masks `phoneNumber` and `mobilePhone`.
+
+**Exact-only terms.** Short or common terms are in `SensitiveFields` only, because as parts they would mask unrelated names: `rg` (`orgId`, `cargo`), `cep` (`accepted`, `exception`), `address` (`ipAddress`), `street` (`streetNumber`), `district`, `cvv`. `ipAddress` is therefore stored, and so is a field like `streetNumber`.
+
+**Where it applies.** JSON properties at any depth; a sensitive key holding an object or array is masked whole (`"address": {...}` becomes `"address": "***"`). A string value holding JSON (common in webhooks, `"payload": "{\"cpf\":\"...\"}"`) is parsed, masked by the same names and stored back as a string, up to 3 levels of JSON inside strings; a string that is not valid JSON is kept as received.
+
+**Not masked by default:** `name` and `nome` (names of companies and people are often needed to read an audit), `city`, `state`, order and product fields. Add them if your service must not store them.
+
+**Adding and removing names.** The three sets are public and mutable:
+
+```csharp
+services.AddRequestAudit(options =>
+{
+    options.SensitiveFields.Add("name");           // exact: name, names, customer.name
+    options.SensitiveFields.Add("nome");
+    options.SensitiveNameParts.Add("pix");         // contains: pixKey, chave_pix
+    options.SensitiveHeaders.Add("Referer");
+
+    // A term present in both sets (cpf, cnpj, email, document, phone, telefone, celular, cardnumber)
+    // must be removed from both to stop masking it.
+    options.SensitiveFields.Remove("email");
+    options.SensitiveNameParts.Remove("email");
+});
+```
 
 Not masked:
 
-- the URL path (only the query string goes through `SensitiveFields`), so keep secrets out of route values;
+- the URL path (only the query string goes through the field rules), so keep secrets out of route values;
 - the `Referer` header, which can carry another page's query string; add it to `SensitiveHeaders` if that matters.
 
 `CallerClaims` matches claim types as they are on the `ClaimsPrincipal`. With JwtBearer's default `MapInboundClaims = true`, the `sub` claim arrives as `ClaimTypes.NameIdentifier`, so either add that type to `CallerClaims` or set `MapInboundClaims = false`.
+
+## Bodies
+
+Request and response bodies are stored by default (`StoreRequestBody`, `StoreResponseBody`), always masked. Evaluate per service whether they are needed: when one is off, it is not read (request) or copied (response), and the `...BodyNote` field says `Not stored: StoreRequestBody is off.` (or `StoreResponseBody`). Method, URL, query, status and headers are always stored, masked.
+
+```csharp
+services.AddRequestAudit(options => options.StoreResponseBody = false);
+```
 
 A body is stored only when it can be masked: JSON (`application/json`, `+json`) and `application/x-www-form-urlencoded` (stored as a JSON object). It is **not** stored, and the `...BodyNote` field says why, when:
 
@@ -89,15 +125,19 @@ A body is stored only when it can be masked: JSON (`application/json`, `+json`) 
 | `Enabled` | `true` | Turns the auditing on or off. |
 | `MaxBodyBytes` | `32768` | Largest body stored. Must be between 1 and `MaxBodyBytesLimit` (1048576). |
 | `SaveTimeout` | `00:00:05` | Longest wait for the store; the save is then cancelled and logged. Must be positive. |
+| `StoreRequestBody` | `true` | Stores the request body, masked. When off it is not read. |
+| `StoreResponseBody` | `true` | Stores the response body, masked. When off it is not copied. |
 | `ClientIpHeader` | `null` | Header holding the caller address behind a proxy. Stored as received: set it only when the proxy overwrites the header. |
 | `SensitiveHeaders` | see above | Headers masked. |
-| `SensitiveFields` | see above | Fields masked. |
-| `SensitiveNameParts` | see above | Parts of a field or header name that make it masked. |
+| `SensitiveFields` | see above | Field names masked on exact match (and plural). |
+| `SensitiveNameParts` | see above | Parts of a field or header name that make it masked (contains). |
 | `CallerClaims` | `sub`, `client_id`, `azp` | Claim types copied into `Caller`. |
 
 ## Retention
 
-Entries are never expired automatically. Old ones are deleted by an explicit purge, the same approach as SimpleHistory: `IRequestAuditPurger` (implemented by the storage provider) and its command-line front end, `PurgeRequestAuditCommand`.
+**Nothing expires by itself, and scheduling the purge is mandatory.** There is no TTL: entries stay until they are deleted by an explicit purge (the same approach as SimpleHistory) through `IRequestAuditPurger` (implemented by the storage provider) and its command-line front end, `PurgeRequestAuditCommand`. A service that adopts the package without scheduling the purge keeps personal data forever.
+
+**Agree the retention with Product and Legal.** Audit entries hold personal data (masked, but the caller IP, URLs and unmasked fields remain). Under the LGPD, data may be kept only as long as necessary for its purpose (necessity principle, art. 6, III; end of processing and deletion, arts. 15 and 16). The default is 30 days; use a longer window only when a documented purpose (a contract, a dispute window, a regulation) requires it.
 
 ```csharp
 // In a console command of your app, e.g. "purge-request-audit"
@@ -107,13 +147,42 @@ return await PurgeRequestAuditCommand.ExecuteAsync(
 
 | Argument | Meaning |
 |---|---|
-| *(none)* | Deletes the entries older than 365 days. |
+| *(none)* | Deletes the entries older than 30 days (`PurgeRequestAuditArgs.DefaultOlderThanDays`). |
 | `--older-than-days=<N>` | Deletes the entries older than N days. Cannot be combined with `--from` / `--to`. |
 | `--from=<date>` | Inclusive lower bound on `CreatedAtUtc` (`yyyy-MM-dd` or `yyyy-MM-ddTHH:mm:ssZ`). |
 | `--to=<date>` | Exclusive upper bound (same formats). When only `--from` is given, the purge stops at the time it started. |
 | `--dry-run` | Only counts what would be deleted. |
 
 Dates accept a `Z` or an offset (`2026-02-01T03:00:00-03:00`) and neither bound may be in the future. The arguments are validated before the purger is created, so bad input never opens a connection. Deletion runs in batches (5000 entries per round trip by default).
+
+Schedule it daily, for example with a Kubernetes CronJob (pass the window explicitly, so it is visible where it runs):
+
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: my-api-purge-request-audit
+spec:
+  schedule: "0 6 * * *"            # daily, 03:00 in Sao Paulo
+  concurrencyPolicy: Forbid        # never two purges at once
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: purge
+              image: my-registry/my-api:latest   # the same image as the app
+              args: ["purge-request-audit", "--older-than-days=30"]
+              envFrom:
+                - secretRef:
+                    name: my-api-secrets         # the database connection
+```
+
+**Backups extend the real retention.** A purged entry still lives in the database snapshots (for example MongoDB Atlas backups) until each snapshot expires, so the effective retention is the purge window plus the snapshot retention. Take that into account in the agreement with Product and Legal.
 
 ## Your own store
 

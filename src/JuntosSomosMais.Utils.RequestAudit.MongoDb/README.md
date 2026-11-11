@@ -27,7 +27,7 @@ It is idempotent and creates indexes on `CreatedAtUtc` (used by the purge), `Url
 
 ## Retention
 
-There is no TTL index: entries stay until they are purged. `MongoRequestAuditPurger` deletes by `CreatedAtUtc` range in batches (it selects the ids of one batch, then deletes exactly those), so a large purge never holds one long-running delete. Run it through the core's `PurgeRequestAuditCommand`, whose arguments are documented in the [core README](../JuntosSomosMais.Utils.RequestAudit/README.md#retention):
+There is no TTL index: entries stay until they are purged. `MongoRequestAuditPurger` deletes by `CreatedAtUtc` range in batches (it selects the ids of one batch, then deletes exactly those), so a large purge never holds one long-running delete. Run it through the core's `PurgeRequestAuditCommand`, whose arguments, the mandatory scheduling and a Kubernetes CronJob example are in the [core README](../JuntosSomosMais.Utils.RequestAudit/README.md#retention):
 
 ```csharp
 return await PurgeRequestAuditCommand.ExecuteAsync(
@@ -35,8 +35,8 @@ return await PurgeRequestAuditCommand.ExecuteAsync(
 ```
 
 ```bash
-dotnet MyApp.dll purge-request-audit --older-than-days=90 --dry-run
-dotnet MyApp.dll purge-request-audit --older-than-days=90
+dotnet MyApp.dll purge-request-audit --older-than-days=30 --dry-run
+dotnet MyApp.dll purge-request-audit --older-than-days=30
 ```
 
 ## Document shape
@@ -64,4 +64,4 @@ dotnet MyApp.dll purge-request-audit --older-than-days=90
 
 - `_id` is the entry id as text, so it does not depend on the Guid representation the app configured.
 - Headers, query parameters and caller claims are lists of `Name`/`Value` pairs, because their names may contain `.` or start with `$`. Query one with `$elemMatch`.
-- Bodies are stored as JSON text.
+- Bodies are stored as JSON text, already masked. Atlas snapshots (backups) keep purged documents until each snapshot expires, so the real retention is the purge window plus the snapshot retention.
