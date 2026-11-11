@@ -18,7 +18,7 @@ public sealed class MongoRequestAuditPurger(
         ArgumentNullException.ThrowIfNull(request);
 
         var (from, pinnedTo) = PurgeInterval.Resolve(
-            request.FromUtc, request.ToUtc, request.BatchSize, timeProvider, "entry");
+            request.FromUtc, request.ToUtc, request.BatchSize, timeProvider, "entry", nameof(request));
 
         options.Validate();
         var collection = database

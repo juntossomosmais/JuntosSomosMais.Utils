@@ -16,7 +16,7 @@ public sealed class MongoHistoryPurger(IMongoDatabase database, TimeProvider? ti
         ArgumentNullException.ThrowIfNull(request);
 
         var (from, pinnedTo) = PurgeInterval.Resolve(
-            request.FromUtc, request.ToUtc, request.BatchSize, timeProvider, "row");
+            request.FromUtc, request.ToUtc, request.BatchSize, timeProvider, "row", nameof(request));
 
         var list = sources.ToList();
         foreach (var source in list)

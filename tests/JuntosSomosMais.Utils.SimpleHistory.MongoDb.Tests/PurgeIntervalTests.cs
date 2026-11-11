@@ -14,7 +14,7 @@ public class PurgeIntervalTests
         var to = Now.AddDays(-1);
 
         // Act
-        var (fromUtc, pinnedTo) = PurgeInterval.Resolve(from, to, 10, new FakeTimeProvider(Now), "row");
+        var (fromUtc, pinnedTo) = PurgeInterval.Resolve(from, to, 10, new FakeTimeProvider(Now), "row", "request");
 
         // Assert
         Assert.Equal(Now.AddDays(-2), fromUtc);
@@ -29,7 +29,7 @@ public class PurgeIntervalTests
         var from = Now.AddDays(-1);
 
         // Act
-        var (fromUtc, pinnedTo) = PurgeInterval.Resolve(from, null, 10, new FakeTimeProvider(Now), "row");
+        var (fromUtc, pinnedTo) = PurgeInterval.Resolve(from, null, 10, new FakeTimeProvider(Now), "row", "request");
 
         // Assert
         Assert.Equal(from, fromUtc);
@@ -43,7 +43,7 @@ public class PurgeIntervalTests
         var to = Now.AddDays(-1);
 
         // Act
-        var (fromUtc, pinnedTo) = PurgeInterval.Resolve(null, to, 10, new FakeTimeProvider(Now), "row");
+        var (fromUtc, pinnedTo) = PurgeInterval.Resolve(null, to, 10, new FakeTimeProvider(Now), "row", "request");
 
         // Assert
         Assert.Null(fromUtc);
@@ -57,7 +57,7 @@ public class PurgeIntervalTests
         var before = DateTime.UtcNow;
 
         // Act
-        var (_, pinnedTo) = PurgeInterval.Resolve(before.AddDays(-1), null, 10, null, "row");
+        var (_, pinnedTo) = PurgeInterval.Resolve(before.AddDays(-1), null, 10, null, "row", "request");
 
         // Assert
         Assert.InRange(pinnedTo, before, DateTime.UtcNow);
@@ -70,7 +70,7 @@ public class PurgeIntervalTests
     {
         // Arrange
         // Act
-        var error = Assert.Throws<ArgumentException>(() => PurgeInterval.Resolve(null, null, 10, null, noun));
+        var error = Assert.Throws<ArgumentException>(() => PurgeInterval.Resolve(null, null, 10, null, noun, "request"));
 
         // Assert
         Assert.Equal("request", error.ParamName);
@@ -84,7 +84,7 @@ public class PurgeIntervalTests
     {
         // Arrange
         // Act
-        var error = Assert.Throws<ArgumentException>(() => PurgeInterval.Resolve(null, Now, batchSize, null, "row"));
+        var error = Assert.Throws<ArgumentException>(() => PurgeInterval.Resolve(null, Now, batchSize, null, "row", "request"));
 
         // Assert
         Assert.Equal("request", error.ParamName);
@@ -98,8 +98,8 @@ public class PurgeIntervalTests
         var unspecified = DateTime.SpecifyKind(Now, DateTimeKind.Unspecified);
 
         // Act
-        var fromError = Assert.Throws<ArgumentException>(() => PurgeInterval.Resolve(unspecified, null, 10, null, "row"));
-        var toError = Assert.Throws<ArgumentException>(() => PurgeInterval.Resolve(null, unspecified, 10, null, "row"));
+        var fromError = Assert.Throws<ArgumentException>(() => PurgeInterval.Resolve(unspecified, null, 10, null, "row", "request"));
+        var toError = Assert.Throws<ArgumentException>(() => PurgeInterval.Resolve(null, unspecified, 10, null, "row", "request"));
 
         // Assert
         Assert.Equal("FromUtc", fromError.ParamName);
@@ -117,7 +117,7 @@ public class PurgeIntervalTests
 
         // Act
         var error = Assert.Throws<ArgumentException>(
-            () => PurgeInterval.Resolve(to.AddDays(daysAfter), to, 10, new FakeTimeProvider(Now), "row"));
+            () => PurgeInterval.Resolve(to.AddDays(daysAfter), to, 10, new FakeTimeProvider(Now), "row", "request"));
 
         // Assert
         Assert.Equal("request", error.ParamName);
@@ -130,7 +130,7 @@ public class PurgeIntervalTests
         // Arrange
         // Act
         var error = Assert.Throws<ArgumentException>(
-            () => PurgeInterval.Resolve(Now, null, 10, new FakeTimeProvider(Now), "row"));
+            () => PurgeInterval.Resolve(Now, null, 10, new FakeTimeProvider(Now), "row", "request"));
 
         // Assert
         Assert.StartsWith("FromUtc must be before the start of the purge.", error.Message);
