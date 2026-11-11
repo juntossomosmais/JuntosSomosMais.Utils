@@ -47,7 +47,7 @@ public sealed class RequestAuditMiddleware(
 
         // Read before the endpoint runs: afterwards the stream may be disposed or replaced.
         (audit.RequestBody, audit.RequestBodyNote) = _options.StoreRequestBody
-            ? await ReadRequestBodyAsync(request)
+            ? await ReadRequestBodyAsync(request, context.RequestAborted)
             : (null, RequestBodyOffNote);
 
         var originalBody = response.Body;
@@ -75,11 +75,27 @@ public sealed class RequestAuditMiddleware(
 
             // After an exception the capture stays in place, so the answer of an exception handler is recorded.
             if (completed && audit.ResponseCapture is not null)
-            {
-                // Restoring the body drops the writer wrapping the capture, with whatever the endpoint left unflushed in it.
-                await response.BodyWriter.FlushAsync();
-                response.Body = originalBody;
-            }
+                await RestoreResponseBodyAsync(context, originalBody);
+        }
+    }
+
+    /// <summary>
+    /// Flushes the writer wrapping the capture, since restoring the body drops it with whatever the endpoint left
+    /// unflushed in it, then puts the original body back. A client that went away needs neither the bytes nor an error.
+    /// </summary>
+    private static async Task RestoreResponseBodyAsync(HttpContext context, Stream originalBody)
+    {
+        try
+        {
+            await context.Response.BodyWriter.FlushAsync(context.RequestAborted);
+        }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            // The request was aborted: nothing is left to send.
+        }
+        finally
+        {
+            context.Response.Body = originalBody;
         }
     }
 
@@ -122,7 +138,7 @@ public sealed class RequestAuditMiddleware(
         }
     }
 
-    private async Task<(string? Body, string? Note)> ReadRequestBodyAsync(HttpRequest request)
+    private async Task<(string? Body, string? Note)> ReadRequestBodyAsync(HttpRequest request, CancellationToken cancellationToken)
     {
         var contentType = request.ContentType;
         var limit = _options.MaxBodyBytes;
@@ -135,7 +151,7 @@ public sealed class RequestAuditMiddleware(
 
             // One byte past the limit tells a body of exactly the limit from a larger one.
             var buffer = new byte[(int)Math.Min(request.ContentLength ?? long.MaxValue, limit + 1L)];
-            var read = await request.Body.ReadAtLeastAsync(buffer, buffer.Length, throwOnEndOfStream: false);
+            var read = await request.Body.ReadAtLeastAsync(buffer, buffer.Length, throwOnEndOfStream: false, cancellationToken);
             request.Body.Position = 0;
 
             return _masker.MaskBody(contentType, buffer[..Math.Min(read, limit)], read > limit);

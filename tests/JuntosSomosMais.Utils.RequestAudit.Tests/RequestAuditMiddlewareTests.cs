@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Net;
 using System.Text;
 using JuntosSomosMais.Utils.RequestAudit.Tests.Support;
@@ -809,6 +810,82 @@ public class RequestAuditMiddlewareTests
         Assert.Equal("Not stored: StoreResponseBody is off.", saved.ResponseBodyNote);
     }
 
+    [Fact]
+    public async Task InvokeAsync_RequestAbortedWithBytesUnflushedInTheBodyWriter_RestoresTheBodyAndSavesTheEntry()
+    {
+        // Arrange
+        RequestAuditEntry? saved = null;
+        var store = new Mock<IRequestAuditStore>();
+        store.Setup(s => s.SaveAsync(It.IsAny<RequestAuditEntry>(), It.IsAny<CancellationToken>()))
+            .Callback<RequestAuditEntry, CancellationToken>((entry, _) => saved = entry)
+            .Returns(Task.CompletedTask);
+        using var aborted = new CancellationTokenSource();
+        var responseFeature = new CompletableResponseFeature();
+        var context = new DefaultHttpContext { RequestAborted = aborted.Token };
+        context.Features.Set<IHttpResponseFeature>(responseFeature);
+        context.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(new AuditRequestAttribute()), "test"));
+        var responseBody = new MemoryStream();
+        context.Response.Body = responseBody;
+        var middleware = new RequestAuditMiddleware(
+            current =>
+            {
+                current.Response.BodyWriter.Write("unflushed"u8);
+                aborted.Cancel();
+                return Task.CompletedTask;
+            },
+            store.Object,
+            Options.Create(new RequestAuditOptions()),
+            TimeProvider.System,
+            NullLogger<RequestAuditMiddleware>.Instance);
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => middleware.InvokeAsync(context));
+        var responseBodyAfter = context.Response.Body;
+        await responseFeature.CompleteAsync();
+
+        // Assert
+        Assert.Null(exception);
+        Assert.Same(responseBody, responseBodyAfter);
+        Assert.Equal(0, responseBody.Length);
+        Assert.NotNull(saved);
+        Assert.Equal(200, saved.ResponseStatusCode);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_RequestAbortedBeforeTheBodyIsRead_SavesTheEntryWithoutIt()
+    {
+        // Arrange
+        RequestAuditEntry? saved = null;
+        var store = new Mock<IRequestAuditStore>();
+        store.Setup(s => s.SaveAsync(It.IsAny<RequestAuditEntry>(), It.IsAny<CancellationToken>()))
+            .Callback<RequestAuditEntry, CancellationToken>((entry, _) => saved = entry)
+            .Returns(Task.CompletedTask);
+        var responseFeature = new CompletableResponseFeature();
+        var requestBody = new TokenRecordingStream(Encoding.UTF8.GetBytes("""{"key":"value"}"""));
+        var context = new DefaultHttpContext { RequestAborted = new CancellationToken(canceled: true) };
+        context.Features.Set<IHttpResponseFeature>(responseFeature);
+        context.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(new AuditRequestAttribute()), "test"));
+        context.Request.Method = "POST";
+        context.Request.ContentType = "application/json";
+        context.Request.Body = requestBody;
+        var middleware = new RequestAuditMiddleware(
+            _ => Task.CompletedTask,
+            store.Object,
+            Options.Create(new RequestAuditOptions()),
+            TimeProvider.System,
+            NullLogger<RequestAuditMiddleware>.Instance);
+
+        // Act
+        await middleware.InvokeAsync(context);
+        await responseFeature.CompleteAsync();
+
+        // Assert
+        Assert.Equal(context.RequestAborted, requestBody.ReadToken);
+        Assert.NotNull(saved);
+        Assert.Null(saved.RequestBody);
+        Assert.Equal("Not stored: the request body could not be read.", saved.RequestBodyNote);
+    }
+
     private static StringContent Json(string body) => new(body, Encoding.UTF8, "application/json");
 
     public static TheoryData<Exception> ReadFailures() => new()
@@ -856,6 +933,18 @@ public class RequestAuditMiddlewareTests
         }
 
         public void Fire() => _callback!(_state);
+    }
+
+    /// <summary>A request body that records the token given to the read.</summary>
+    private sealed class TokenRecordingStream(byte[] data) : MemoryStream(data)
+    {
+        public CancellationToken? ReadToken { get; private set; }
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            ReadToken = cancellationToken;
+            return base.ReadAsync(buffer, cancellationToken);
+        }
     }
 
     /// <summary>A body whose length is unknown beforehand, so it is sent without Content-Length.</summary>
