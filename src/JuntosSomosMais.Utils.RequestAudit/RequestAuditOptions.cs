@@ -13,6 +13,16 @@ public sealed class RequestAuditOptions
     public int MaxBodyBytes { get; set; } = 32 * 1024;
 
     /// <summary>
+    /// Stores the request body (masked). When off, the body is not read and the entry says it was not stored.
+    /// </summary>
+    public bool StoreRequestBody { get; set; } = true;
+
+    /// <summary>
+    /// Stores the response body (masked). When off, the response is not copied and the entry says it was not stored.
+    /// </summary>
+    public bool StoreResponseBody { get; set; } = true;
+
+    /// <summary>
     /// Longest wait for the store to save an entry. The save then is cancelled and the failure logged.
     /// </summary>
     public TimeSpan SaveTimeout { get; set; } = TimeSpan.FromSeconds(5);

@@ -21,6 +21,8 @@ public class RequestAuditExtensionsTests
         Assert.Equal(32 * 1024, options.MaxBodyBytes);
         Assert.Equal(TimeSpan.FromSeconds(5), options.SaveTimeout);
         Assert.Null(options.ClientIpHeader);
+        Assert.True(options.StoreRequestBody);
+        Assert.True(options.StoreResponseBody);
         Assert.Equal(new[] { "sub", "client_id", "azp" }, options.CallerClaims);
         Assert.Equal(
             new[]

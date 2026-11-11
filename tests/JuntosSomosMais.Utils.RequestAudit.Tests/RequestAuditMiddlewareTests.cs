@@ -714,6 +714,101 @@ public class RequestAuditMiddlewareTests
         Assert.Null(entry.ResponseBodyNote);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InvokeAsync_ResponseBodyOff_SavesNoteAndDeliversTheResponseWhole(bool onKestrel)
+    {
+        // Arrange
+        await using var host = await RequestAuditTestHost.StartAsync(
+            options => options.StoreResponseBody = false, onKestrel: onKestrel);
+        const string body = """{"key":"value","password":"p"}""";
+
+        // Act
+        var response = await host.Client.PostAsync(EchoRoute, Json(body));
+        var entry = await host.Store.WaitForEntryAsync();
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(body, await response.Content.ReadAsStringAsync());
+        Assert.Equal("""{"key":"value","password":"***"}""", entry.RequestBody);
+        Assert.Null(entry.RequestBodyNote);
+        Assert.Equal(200, entry.ResponseStatusCode);
+        Assert.Equal("application/json; charset=utf-8", entry.ResponseHeaders["Content-Type"]);
+        Assert.Equal("***", entry.ResponseHeaders["Set-Cookie"]);
+        Assert.Null(entry.ResponseBody);
+        Assert.Equal("Not stored: StoreResponseBody is off.", entry.ResponseBodyNote);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_RequestBodyOff_SavesNoteAndStillStoresTheResponse()
+    {
+        // Arrange
+        await using var host = await RequestAuditTestHost.StartAsync(options => options.StoreRequestBody = false);
+        const string body = """{"key":"value","cpf":"1"}""";
+
+        // Act
+        var response = await host.Client.PostAsync(EchoRoute, Json(body));
+        var entry = await host.Store.WaitForEntryAsync();
+
+        // Assert
+        Assert.Equal(body, await response.Content.ReadAsStringAsync());
+        Assert.Null(entry.RequestBody);
+        Assert.Equal("Not stored: StoreRequestBody is off.", entry.RequestBodyNote);
+        Assert.Equal("application/json; charset=utf-8", entry.RequestHeaders["Content-Type"]);
+        Assert.Equal("""{"key":"value","cpf":"***"}""", entry.ResponseBody);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_RequestBodyOff_DoesNotBufferTheBody()
+    {
+        // Arrange
+        var options = new RequestAuditOptions { StoreRequestBody = false, StoreResponseBody = false };
+        RequestAuditEntry? saved = null;
+        var store = new Mock<IRequestAuditStore>();
+        store.Setup(s => s.SaveAsync(It.IsAny<RequestAuditEntry>(), It.IsAny<CancellationToken>()))
+            .Callback<RequestAuditEntry, CancellationToken>((entry, _) => saved = entry)
+            .Returns(Task.CompletedTask);
+        var responseFeature = new CompletableResponseFeature();
+        var context = new DefaultHttpContext();
+        context.Features.Set<IHttpResponseFeature>(responseFeature);
+        context.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(new AuditRequestAttribute()), "test"));
+        context.Request.Method = "POST";
+        context.Request.ContentType = "application/json";
+        var requestBody = new UnknownLengthStream(Encoding.UTF8.GetBytes("""{"k":"abc"}"""));
+        context.Request.Body = requestBody;
+        var responseBody = context.Response.Body;
+        Stream? requestBodySeen = null;
+        Stream? responseBodySeen = null;
+        var middleware = new RequestAuditMiddleware(
+            current =>
+            {
+                requestBodySeen = current.Request.Body;
+                responseBodySeen = current.Response.Body;
+                return Task.CompletedTask;
+            },
+            store.Object,
+            Options.Create(options),
+            TimeProvider.System,
+            NullLogger<RequestAuditMiddleware>.Instance);
+
+        // Act
+        await middleware.InvokeAsync(context);
+        var responseBodyAfter = context.Response.Body;
+        await responseFeature.CompleteAsync();
+
+        // Assert
+        Assert.Same(requestBody, requestBodySeen);
+        Assert.Equal(0, requestBody.Position);
+        Assert.Same(responseBody, responseBodySeen);
+        Assert.Same(responseBody, responseBodyAfter);
+        Assert.NotNull(saved);
+        Assert.Null(saved.RequestBody);
+        Assert.Equal("Not stored: StoreRequestBody is off.", saved.RequestBodyNote);
+        Assert.Null(saved.ResponseBody);
+        Assert.Equal("Not stored: StoreResponseBody is off.", saved.ResponseBodyNote);
+    }
+
     private static StringContent Json(string body) => new(body, Encoding.UTF8, "application/json");
 
     public static TheoryData<Exception> ReadFailures() => new()

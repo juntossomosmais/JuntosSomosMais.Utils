@@ -17,6 +17,8 @@ public sealed class RequestAuditMiddleware(
     ILogger<RequestAuditMiddleware> logger)
 {
     private const string TraceParentHeader = "traceparent";
+    private const string RequestBodyOffNote = "Not stored: StoreRequestBody is off.";
+    private const string ResponseBodyOffNote = "Not stored: StoreResponseBody is off.";
 
     private readonly RequestAuditOptions _options = options.Value;
     private readonly RequestAuditMasker _masker = new(options.Value);
@@ -44,12 +46,17 @@ public sealed class RequestAuditMiddleware(
         };
 
         // Read before the endpoint runs: afterwards the stream may be disposed or replaced.
-        (audit.RequestBody, audit.RequestBodyNote) = await ReadRequestBodyAsync(request);
+        (audit.RequestBody, audit.RequestBodyNote) = _options.StoreRequestBody
+            ? await ReadRequestBodyAsync(request)
+            : (null, RequestBodyOffNote);
 
         var originalBody = response.Body;
-        var capture = new CapturingStream(originalBody, _options.MaxBodyBytes);
-        response.Body = capture;
-        audit.ResponseCapture = capture;
+        if (_options.StoreResponseBody)
+        {
+            var capture = new CapturingStream(originalBody, _options.MaxBodyBytes);
+            response.Body = capture;
+            audit.ResponseCapture = capture;
+        }
 
         // Saved once the response is sent, whoever wrote it: the endpoint or an exception handler placed before
         // this middleware. On HTTP/1.1 the server reads the next request on the connection only after this save,
@@ -67,7 +74,7 @@ public sealed class RequestAuditMiddleware(
             audit.Caller = ReadCaller(context.User);
 
             // After an exception the capture stays in place, so the answer of an exception handler is recorded.
-            if (completed)
+            if (completed && audit.ResponseCapture is not null)
             {
                 // Restoring the body drops the writer wrapping the capture, with whatever the endpoint left unflushed in it.
                 await response.BodyWriter.FlushAsync();
@@ -80,8 +87,10 @@ public sealed class RequestAuditMiddleware(
     {
         try
         {
-            using var capture = audit.ResponseCapture!;
-            var (responseBody, responseBodyNote) = _masker.MaskBody(response.ContentType, capture.Captured, capture.Truncated);
+            using var capture = audit.ResponseCapture;
+            var (responseBody, responseBodyNote) = capture is null
+                ? (null, ResponseBodyOffNote)
+                : _masker.MaskBody(response.ContentType, capture.Captured, capture.Truncated);
 
             var entry = new RequestAuditEntry
             {
