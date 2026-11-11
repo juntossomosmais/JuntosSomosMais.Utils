@@ -4,5 +4,5 @@ namespace JuntosSomosMais.Utils.RequestAudit;
 public interface IRequestAuditStore
 {
     /// <summary>Stores one entry. The token is cancelled after <see cref="RequestAuditOptions.SaveTimeout"/>.</summary>
-    Task SaveAsync(RequestAuditEntry entry, CancellationToken cancellationToken = default);
+    public Task SaveAsync(RequestAuditEntry entry, CancellationToken cancellationToken = default);
 }
