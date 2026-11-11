@@ -1,4 +1,5 @@
 using System.Globalization;
+using JuntosSomosMais.Utils.Shared;
 
 namespace JuntosSomosMais.Utils.RequestAudit;
 
@@ -11,11 +12,6 @@ public sealed record PurgeRequestAuditArgs(DateTime? FromUtc, DateTime? ToUtc, b
     /// <summary>Age of the entries deleted when no interval is given.</summary>
     public const int DefaultOlderThanDays = 30;
 
-    private const string FromArg = "--from";
-    private const string ToArg = "--to";
-    private const string OlderThanDaysArg = "--older-than-days";
-    private const string DryRunArg = "--dry-run";
-
     private const string Usage = "Expected '--from=<date>', '--to=<date>', '--older-than-days=<N>' or '--dry-run'.";
 
     private static readonly string[] DateFormats = ["yyyy-MM-dd", "yyyy-MM-ddTHH:mm:ssK"];
@@ -25,104 +21,23 @@ public sealed record PurgeRequestAuditArgs(DateTime? FromUtc, DateTime? ToUtc, b
     /// <exception cref="ArgumentException">Unknown, duplicate, empty or inconsistent arguments.</exception>
     public static PurgeRequestAuditArgs Parse(string[] args, DateTime utcNow)
     {
-        var parsed = new Accumulator();
-        foreach (var arg in args)
-            parsed.Add(arg);
-        return parsed.Build(utcNow);
+        var parsed = new PurgeArguments(Usage, ParseDate);
+        parsed.AddAll(args);
+
+        var to = parsed.ResolveTo(utcNow, DefaultOlderThanDays);
+        if (parsed.From >= utcNow)
+            throw new ArgumentException(
+                $"'{PurgeArguments.FromArg}' ({parsed.From.Value:O}) must be before the current time ({utcNow:O}).");
+        if (to > utcNow)
+            throw new ArgumentException(
+                $"'{PurgeArguments.ToArg}' ({to.Value:O}) cannot be after the current time ({utcNow:O}).");
+
+        parsed.EnsureFromBeforeTo(to);
+        return new PurgeRequestAuditArgs(parsed.From, to, parsed.DryRun);
     }
 
-    private sealed class Accumulator
-    {
-        private readonly HashSet<string> _seen = new(StringComparer.OrdinalIgnoreCase);
-        private DateTime? _from;
-        private DateTime? _to;
-        private int? _olderThanDays;
-        private bool _dryRun;
-
-        public void Add(string arg)
-        {
-            var (name, value) = Split(arg);
-            if (!IsKnown(name, value))
-                throw new ArgumentException($"Unrecognized argument: '{arg}'. {Usage}");
-            if (!_seen.Add(name))
-                throw new ArgumentException($"Duplicate argument: '{name}'.");
-
-            if (name.Equals(DryRunArg, StringComparison.OrdinalIgnoreCase))
-            {
-                _dryRun = true;
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(value))
-                throw new ArgumentException($"Argument '{name}' requires a value.");
-
-            Apply(name, value);
-        }
-
-        public PurgeRequestAuditArgs Build(DateTime utcNow)
-        {
-            if (_olderThanDays.HasValue && (_from.HasValue || _to.HasValue))
-                throw new ArgumentException($"'{OlderThanDaysArg}' cannot be combined with '{FromArg}' or '{ToArg}'.");
-
-            var to = _olderThanDays.HasValue || (!_from.HasValue && !_to.HasValue)
-                ? SubtractDays(utcNow, _olderThanDays ?? DefaultOlderThanDays)
-                : _to;
-
-            if (_from >= utcNow)
-                throw new ArgumentException($"'{FromArg}' ({_from.Value:O}) must be before the current time ({utcNow:O}).");
-            if (to > utcNow)
-                throw new ArgumentException($"'{ToArg}' ({to.Value:O}) cannot be after the current time ({utcNow:O}).");
-
-            return _from.HasValue && to.HasValue && _from.Value >= to.Value
-                ? throw new ArgumentException($"'{FromArg}' ({_from.Value:O}) must be before '{ToArg}' ({to.Value:O}).")
-                : new PurgeRequestAuditArgs(_from, to, _dryRun);
-        }
-
-        private void Apply(string name, string value)
-        {
-            if (name.Equals(FromArg, StringComparison.OrdinalIgnoreCase))
-                _from = ParseDate(value, FromArg);
-            else if (name.Equals(ToArg, StringComparison.OrdinalIgnoreCase))
-                _to = ParseDate(value, ToArg);
-            else
-                _olderThanDays = ParseOlderThanDays(value);
-        }
-
-        private static (string Name, string? Value) Split(string arg) =>
-            arg.Split('=', 2) is [var name, var value] ? (name, value) : (arg, null);
-
-        private static bool IsKnown(string name, string? value) =>
-            name.Equals(DryRunArg, StringComparison.OrdinalIgnoreCase)
-                ? value is null
-                : value is not null && (name.Equals(FromArg, StringComparison.OrdinalIgnoreCase)
-                    || name.Equals(ToArg, StringComparison.OrdinalIgnoreCase)
-                    || name.Equals(OlderThanDaysArg, StringComparison.OrdinalIgnoreCase));
-
-        private static DateTime ParseDate(string value, string name)
-        {
-            return !DateTimeOffset.TryParseExact(
-                    value, DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)
-                ? throw new ArgumentException($"Invalid date for argument '{name}': '{value}'. Expected format: yyyy-MM-dd or yyyy-MM-ddTHH:mm:ssZ.")
-                : parsed.UtcDateTime;
-        }
-
-        private static int ParseOlderThanDays(string value)
-        {
-            return !int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) || parsed <= 0
-                ? throw new ArgumentException($"Invalid value for argument '{OlderThanDaysArg}': '{value}'. Expected a positive integer.")
-                : parsed;
-        }
-
-        private static DateTime SubtractDays(DateTime utcNow, int days)
-        {
-            try
-            {
-                return DateTime.SpecifyKind(utcNow, DateTimeKind.Utc).AddDays(-days);
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                throw new ArgumentException($"Value of '{OlderThanDaysArg}' is too large: '{days}'.");
-            }
-        }
-    }
+    private static DateTime? ParseDate(string value) =>
+        DateTimeOffset.TryParseExact(value, DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)
+            ? parsed.UtcDateTime
+            : null;
 }

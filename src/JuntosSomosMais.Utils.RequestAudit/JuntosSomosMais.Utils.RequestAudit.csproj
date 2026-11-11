@@ -16,6 +16,10 @@
     <InternalsVisibleTo Include="JuntosSomosMais.Utils.RequestAudit.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Internal source shared with the sibling package (each assembly compiles its own copy). -->
+    <Compile Include="..\Shared\PurgeArguments.cs" Link="Shared\PurgeArguments.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>
