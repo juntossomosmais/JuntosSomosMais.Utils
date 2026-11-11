@@ -32,6 +32,49 @@ public class MongoDbHealthCheckTests
         Assert.Throws<ArgumentException>(() => new MongoDbHealthCheck("   "));
     }
 
+    [Theory(DisplayName = "Should accept the MongoDB.Driver 2.x line")]
+    [InlineData("2.30.0.0")]
+    [InlineData("2.99.0.0")]
+    public void EnsureSupportedDriver_Driver2_ShouldNotThrow(string version)
+    {
+        // Arrange
+        var driverVersion = Version.Parse(version);
+
+        // Act
+        var exception = Record.Exception(() => MongoDbHealthCheck.EnsureSupportedDriver(driverVersion));
+
+        // Assert
+        Assert.Null(exception);
+    }
+
+    [Theory(DisplayName = "Should throw NotSupportedException on MongoDB.Driver 3.x or later")]
+    [InlineData("3.0.0.0")]
+    [InlineData("3.11.0.0")]
+    public void EnsureSupportedDriver_Driver3OrLater_ShouldThrowNotSupportedException(string version)
+    {
+        // Arrange
+        var driverVersion = Version.Parse(version);
+
+        // Act
+        var exception = Assert.Throws<NotSupportedException>(() => MongoDbHealthCheck.EnsureSupportedDriver(driverVersion));
+
+        // Assert
+        Assert.Contains($"MongoDB.Driver {version} was loaded", exception.Message);
+    }
+
+    [Fact(DisplayName = "Should build the check on the MongoDB.Driver 2.x this package references")]
+    public void Constructor_ReferencedDriver_ShouldNotThrow()
+    {
+        // Arrange
+        const string connectionString = "mongodb://localhost:27017";
+
+        // Act
+        var exception = Record.Exception(() => new MongoDbHealthCheck(connectionString));
+
+        // Assert
+        Assert.Null(exception);
+    }
+
     [Fact(DisplayName = "Should throw ArgumentNullException when client is null")]
     public void Constructor_NullClient_ShouldThrowArgumentNullException()
     {

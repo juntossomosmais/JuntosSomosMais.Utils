@@ -15,8 +15,19 @@ public class MongoDbHealthCheck : IHealthCheck
     public MongoDbHealthCheck(string connectionString, string? databaseName = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        EnsureSupportedDriver(typeof(MongoClient).Assembly.GetName().Version);
         _client = new MongoClient(connectionString);
         _databaseName = databaseName;
+    }
+
+    // Built against MongoDB.Driver 2.x. On 3.x the cursor and read preference types live in another assembly, so
+    // CheckHealthAsync fails before reaching its catch and the check silently reports Unhealthy: fail at
+    // registration instead. MongoClient exists in both lines, so this check itself loads on 3.x.
+    internal static void EnsureSupportedDriver(Version? driverVersion)
+    {
+        if (driverVersion is { Major: >= 3 })
+            throw new NotSupportedException(
+                $"MongoDbHealthCheck requires MongoDB.Driver 2.x, but MongoDB.Driver {driverVersion} was loaded.");
     }
 
     internal MongoDbHealthCheck(IMongoClient client, string? databaseName = null)
