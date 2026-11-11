@@ -20,10 +20,9 @@
     <PackageReference Include="Azure.Storage.Blobs" Version="12.27.0" />
     <PackageReference Include="Hangfire.Core" Version="1.8.23" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.3" />
-    <!-- Built against the 2.x line, which ships MongoDB.Driver.Core as its own assembly; 3.0 merged it into
-         MongoDB.Driver, so only the MongoDB check fails to load on 3.x. No upper bound on purpose: services that
-         get MongoDB.Driver 3.x from another package (e.g. JuntosSomosMais.Ziggurat.MongoDB) and register only the
-         other checks work today, and a [2.30.0,3.0.0) range turns that into a restore error (NU1107). -->
+    <!-- Built against 2.x, where MongoDB.Driver.Core is a separate assembly (3.0 merged it), so only the MongoDB
+         check breaks on 3.x. No upper bound on purpose: a capped range makes restore fail (NU1107) for services
+         that get 3.x transitively and never register the MongoDB check. -->
     <PackageReference Include="MongoDB.Driver" Version="2.30.0" />
     <PackageReference Include="NRedisStack" Version="0.13.3" />
     <PackageReference Include="RabbitMQ.Client" Version="7.2.1" />

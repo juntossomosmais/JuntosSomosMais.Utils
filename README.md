@@ -46,7 +46,7 @@ Provides reusable `IHealthCheck` implementations and a standardized JSON respons
 
 - .NET 8 or .NET 10
 - Dependencies are pulled transitively: `Hangfire.Core`, `Microsoft.Data.SqlClient`, `RabbitMQ.Client`, `NRedisStack`, `Azure.Storage.Blobs`, `Azure.Messaging.ServiceBus`, `MongoDB.Driver`
-- `MongoDB.Driver` **2.x** for the MongoDB check. The package is compiled against the 2.x line, where `MongoDB.Driver.Core` is a separate assembly; 3.0 merged it into `MongoDB.Driver`. On a service that resolves `MongoDB.Driver` 3.x, `AddMongoDbHealthCheck` fails with `FileNotFoundException: MongoDB.Driver.Core` as soon as the check runs, on .NET 8 and .NET 10 alike; the other checks are not affected. The dependency has no upper bound on purpose: services that get `MongoDB.Driver` 3.x from another package and register only the other checks keep restoring and running. Support for 3.x in the MongoDB check will come as a separate release.
+- `MongoDB.Driver` **2.x** for the MongoDB check. The package is compiled against the 2.x line, where `MongoDB.Driver.Core` is a separate assembly; 3.0 merged it into `MongoDB.Driver`. On a service that resolves `MongoDB.Driver` 3.x, `AddMongoDbHealthCheck` throws `NotSupportedException` at startup, when the check is registered, on .NET 8 and .NET 10 alike; the other checks are not affected. The dependency has no upper bound on purpose: services that get `MongoDB.Driver` 3.x from another package and register only the other checks keep restoring and running. Support for 3.x in the MongoDB check will come as a separate release.
 
 ### Available health checks
 
