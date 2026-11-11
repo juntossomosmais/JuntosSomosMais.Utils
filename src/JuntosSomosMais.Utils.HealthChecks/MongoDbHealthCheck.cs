@@ -20,9 +20,9 @@ public class MongoDbHealthCheck : IHealthCheck
         _databaseName = databaseName;
     }
 
-    // Built against MongoDB.Driver 2.x. On 3.x the cursor and read preference types live in another assembly, so
-    // CheckHealthAsync fails before reaching its catch and the check silently reports Unhealthy: fail at
-    // registration instead. MongoClient exists in both lines, so this check itself loads on 3.x.
+    // Compiled against 2.x, which looks for the cursor and read preference types in MongoDB.Driver.Core. 3.0 moved
+    // them into MongoDB.Driver, so on 3.x CheckHealthAsync throws before reaching its catch. MongoClient is in
+    // MongoDB.Driver in both lines, so this guard still runs on 3.x.
     internal static void EnsureSupportedDriver(Version? driverVersion)
     {
         if (driverVersion is { Major: >= 3 })
