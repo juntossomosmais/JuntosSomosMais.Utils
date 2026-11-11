@@ -61,11 +61,8 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
             .LastOrDefault(part => !part.All(char.IsAsciiDigit)) ?? name;
 
         var normalized = new StringBuilder(segment.Length);
-        foreach (var character in segment)
-        {
-            if (character is not ('_' or '-'))
-                normalized.Append(char.ToLowerInvariant(character));
-        }
+        foreach (var character in segment.Where(character => character is not ('_' or '-')))
+            normalized.Append(char.ToLowerInvariant(character));
 
         return normalized.ToString();
     }
@@ -97,44 +94,45 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
     }
 
     /// <summary>Masks the node in place and returns it, or returns the node replacing it (a masked embedded JSON).</summary>
-    private JsonNode? MaskNode(JsonNode? node, int embeddedDepth)
+    private JsonNode? MaskNode(JsonNode? node, int embeddedDepth) => node switch
     {
-        switch (node)
+        JsonArray array => MaskArray(array, embeddedDepth),
+        JsonObject json => MaskObject(json, embeddedDepth),
+        JsonValue value when embeddedDepth < MaxEmbeddedJsonDepth && value.TryGetValue<string>(out var text) =>
+            MaskEmbeddedJson(text, embeddedDepth + 1) is { } maskedText ? JsonValue.Create(maskedText) : value,
+        _ => node,
+    };
+
+    private JsonArray MaskArray(JsonArray array, int embeddedDepth)
+    {
+        for (var index = 0; index < array.Count; index++)
         {
-            case JsonArray array:
-                for (var index = 0; index < array.Count; index++)
-                {
-                    var item = array[index];
-                    var masked = MaskNode(item, embeddedDepth);
-                    if (!ReferenceEquals(masked, item))
-                        array[index] = masked;
-                }
-
-                return array;
-
-            case JsonObject json:
-                foreach (var name in json.Select(property => property.Key).ToList())
-                {
-                    if (IsSensitiveField(name))
-                    {
-                        json[name] = Mask;
-                        continue;
-                    }
-
-                    var child = json[name];
-                    var masked = MaskNode(child, embeddedDepth);
-                    if (!ReferenceEquals(masked, child))
-                        json[name] = masked;
-                }
-
-                return json;
-
-            case JsonValue value when embeddedDepth < MaxEmbeddedJsonDepth && value.TryGetValue<string>(out var text):
-                return MaskEmbeddedJson(text, embeddedDepth + 1) is { } maskedText ? JsonValue.Create(maskedText) : value;
-
-            default:
-                return node;
+            var item = array[index];
+            var masked = MaskNode(item, embeddedDepth);
+            if (!ReferenceEquals(masked, item))
+                array[index] = masked;
         }
+
+        return array;
+    }
+
+    private JsonObject MaskObject(JsonObject json, int embeddedDepth)
+    {
+        foreach (var name in json.Select(property => property.Key).ToList())
+        {
+            if (IsSensitiveField(name))
+            {
+                json[name] = Mask;
+                continue;
+            }
+
+            var child = json[name];
+            var masked = MaskNode(child, embeddedDepth);
+            if (!ReferenceEquals(masked, child))
+                json[name] = masked;
+        }
+
+        return json;
     }
 
     /// <summary>

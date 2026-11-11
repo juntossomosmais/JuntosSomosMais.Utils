@@ -524,6 +524,32 @@ public class RequestAuditMaskerTests
         Assert.Equal("plain", json["list"]![1]!.GetValue<string>());
     }
 
+    [Fact]
+    public void MaskBody_ArrayOfObjectsAndArrays_MasksEveryItemAndKeepsTheShape()
+    {
+        // Arrange
+        const string body = """[{"cpf":"1","id":1},[{"email":"a@b.c"},"{\"phone\":\"2\"}"],null,3]""";
+
+        // Act
+        var result = Masker.MaskBody("application/json", Bytes(body), truncated: false);
+
+        // Assert
+        Assert.Equal(("""[{"cpf":"***","id":1},[{"email":"***"},"{\"phone\":\"***\"}"],null,3]""", null), result);
+    }
+
+    [Theory]
+    [InlineData("__Access--Token__", "accesstoken")]
+    [InlineData("-_-", "")]
+    public void NormalizeFieldName_UnderscoresAndHyphens_AreDropped(string name, string expected)
+    {
+        // Arrange
+        // Act
+        var normalized = RequestAuditMasker.NormalizeFieldName(name);
+
+        // Assert
+        Assert.Equal(expected, normalized);
+    }
+
     [Theory]
     [InlineData("{not json")]
     [InlineData("[1,")]
