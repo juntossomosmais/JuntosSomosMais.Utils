@@ -1,6 +1,9 @@
 <Project>
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <!-- One language version for every target: without it the same code compiles as C# 12 on net8.0 and C# 14 on
+         net10.0, so a C# 14 feature would pass the net10.0 build and break the net8.0 one. -->
+    <LangVersion>12</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Authors>JuntosSomosMais</Authors>

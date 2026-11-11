@@ -22,7 +22,7 @@ public class HistoryOptions
     /// <summary>Store that receives the history rows. Defaults to <c>{SourceName}History</c>.</summary>
     public string HistoryName
     {
-        get => _historyName ?? SourceName + "History";
+        get => _historyName ?? (SourceName + "History");
         set => _historyName = value;
     }
 

@@ -4,5 +4,5 @@ namespace JuntosSomosMais.Utils.SimpleHistory;
 internal interface IHistorySetup
 {
     /// <summary>Idempotently prepares the collections and indexes of one tracked collection.</summary>
-    Task EnsureSetupAsync(CancellationToken cancellationToken = default);
+    public Task EnsureSetupAsync(CancellationToken cancellationToken = default);
 }
