@@ -82,6 +82,11 @@ public static class HealthChecksBuilderExtensions
         return builder.AddCheck(name, new AzureServiceBusHealthCheck(connectionString, topicName: topicName), failureStatus, tags ?? []);
     }
 
+    /// <summary>Adds a check that pings MongoDB. Requires <c>MongoDB.Driver</c> 2.x.</summary>
+    /// <exception cref="NotSupportedException">
+    /// The service resolves <c>MongoDB.Driver</c> 3.x or later. The package is compiled against 2.x, so the check
+    /// cannot run there; the other checks of this package are not affected.
+    /// </exception>
     public static IHealthChecksBuilder AddMongoDbHealthCheck(
         this IHealthChecksBuilder builder,
         string connectionString,
