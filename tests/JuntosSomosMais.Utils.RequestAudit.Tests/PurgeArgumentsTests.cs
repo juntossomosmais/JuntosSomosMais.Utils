@@ -14,9 +14,10 @@ public class PurgeArgumentsTests
     {
         // Arrange
         var arguments = Create();
+        var args = new[] { "--FROM=a", "--to=b", "--Dry-Run" };
 
         // Act
-        arguments.AddAll(["--FROM=a", "--to=b", "--Dry-Run"]);
+        arguments.AddAll(args);
 
         // Assert
         Assert.Equal(ParsedDate, arguments.From);
@@ -168,7 +169,8 @@ public class PurgeArgumentsTests
     {
         // Arrange
         var arguments = Create();
-        arguments.AddAll([arg, "--older-than-days=1"]);
+        arguments.Add(arg);
+        arguments.Add("--older-than-days=1");
 
         // Act
         var error = Assert.Throws<ArgumentException>(() => arguments.ResolveTo(Now, defaultOlderThanDays: 30));

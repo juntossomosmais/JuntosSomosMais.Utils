@@ -68,7 +68,7 @@ internal sealed class RequestAuditTestHost : IAsyncDisposable
                     services.AddLogging(logging => logging.AddProvider(logs));
                     services.AddAuthentication(TestAuthenticationHandler.SchemeName)
                         .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(TestAuthenticationHandler.SchemeName, null);
-                    services.AddAuthorization(options => options.AddPolicy("admin", policy => policy.RequireClaim("role", "admin")));
+                    services.AddAuthorizationBuilder().AddPolicy("admin", policy => policy.RequireClaim("role", "admin"));
                     services.AddSingleton<TimeProvider>(new FixedTimeProvider(Now));
                     services.AddRequestAudit(configure);
                     services.AddSingleton<IRequestAuditStore>(store);

@@ -13,13 +13,31 @@ public class CapturingStreamTests
 
         // Act
         await stream.WriteAsync(Encoding.UTF8.GetBytes("hello"));
-        await stream.WriteAsync(Encoding.UTF8.GetBytes("world"), 0, 5);
+        await stream.WriteAsync(Encoding.UTF8.GetBytes("world!").AsMemory(0, 5), CancellationToken.None);
         await stream.FlushAsync();
 
         // Assert
         Assert.Equal("helloworld", Encoding.UTF8.GetString(inner.ToArray()));
         Assert.Equal("helloworld", Encoding.UTF8.GetString(stream.Captured));
         Assert.False(stream.Truncated);
+    }
+
+    [Fact]
+    public async Task WriteAsync_ArrayOverload_WritesTheSliceThroughAndCapturesIt()
+    {
+        // Arrange
+        using var inner = new MemoryStream();
+        await using var stream = new CapturingStream(inner, limit: 10);
+        var buffer = Encoding.UTF8.GetBytes("[hello]");
+
+        // Act
+#pragma warning disable CA1835 // The byte[] overload is the one under test: callers on Stream may still use it.
+        await stream.WriteAsync(buffer, 1, 5, CancellationToken.None);
+#pragma warning restore CA1835
+
+        // Assert
+        Assert.Equal("hello", Encoding.UTF8.GetString(inner.ToArray()));
+        Assert.Equal("hello", Encoding.UTF8.GetString(stream.Captured));
     }
 
     [Fact]

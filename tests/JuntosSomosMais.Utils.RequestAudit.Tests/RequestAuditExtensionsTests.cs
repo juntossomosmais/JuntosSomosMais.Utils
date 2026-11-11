@@ -5,6 +5,28 @@ namespace JuntosSomosMais.Utils.RequestAudit.Tests;
 
 public class RequestAuditExtensionsTests
 {
+    private static readonly string[] DefaultCallerClaims = ["sub", "client_id", "azp"];
+
+    private static readonly string[] DefaultSensitiveHeaders =
+    [
+        "Api-Key", "Authorization", "Cookie", "Proxy-Authorization", "Set-Cookie", "X-Access-Token", "X-Api-Key",
+        "X-Auth-Token",
+    ];
+
+    private static readonly string[] DefaultSensitiveFields =
+    [
+        "address", "authorization", "bairro", "birthdate", "birthday", "cardnumber", "celular", "cep",
+        "cnpj", "cpf", "cpfcnpj", "cvc", "cvv", "datanascimento", "district", "document", "documento",
+        "email", "endereco", "inscricaoestadual", "logradouro", "mobile", "phone", "postalcode", "rg",
+        "street", "telefone", "telephone", "whatsapp", "zipcode",
+    ];
+
+    private static readonly string[] DefaultSensitiveNameParts =
+    [
+        "apikey", "birth", "cardnumber", "celular", "cnpj", "cpf", "document", "email", "nascimento",
+        "password", "phone", "secret", "senha", "telefone", "token",
+    ];
+
     [Fact]
     public void AddRequestAudit_WithoutConfiguration_RegistersTheDefaults()
     {
@@ -23,30 +45,10 @@ public class RequestAuditExtensionsTests
         Assert.Null(options.ClientIpHeader);
         Assert.True(options.StoreRequestBody);
         Assert.True(options.StoreResponseBody);
-        Assert.Equal(new[] { "sub", "client_id", "azp" }, options.CallerClaims);
-        Assert.Equal(
-            new[]
-            {
-                "Api-Key", "Authorization", "Cookie", "Proxy-Authorization", "Set-Cookie", "X-Access-Token", "X-Api-Key",
-                "X-Auth-Token",
-            },
-            options.SensitiveHeaders.Order(StringComparer.Ordinal));
-        Assert.Equal(
-            new[]
-            {
-                "address", "authorization", "bairro", "birthdate", "birthday", "cardnumber", "celular", "cep",
-                "cnpj", "cpf", "cpfcnpj", "cvc", "cvv", "datanascimento", "district", "document", "documento",
-                "email", "endereco", "inscricaoestadual", "logradouro", "mobile", "phone", "postalcode", "rg",
-                "street", "telefone", "telephone", "whatsapp", "zipcode",
-            },
-            options.SensitiveFields.Order(StringComparer.Ordinal));
-        Assert.Equal(
-            new[]
-            {
-                "apikey", "birth", "cardnumber", "celular", "cnpj", "cpf", "document", "email", "nascimento",
-                "password", "phone", "secret", "senha", "telefone", "token",
-            },
-            options.SensitiveNameParts.Order(StringComparer.Ordinal));
+        Assert.Equal(DefaultCallerClaims, options.CallerClaims);
+        Assert.Equal(DefaultSensitiveHeaders, options.SensitiveHeaders.Order(StringComparer.Ordinal));
+        Assert.Equal(DefaultSensitiveFields, options.SensitiveFields.Order(StringComparer.Ordinal));
+        Assert.Equal(DefaultSensitiveNameParts, options.SensitiveNameParts.Order(StringComparer.Ordinal));
         Assert.Same(TimeProvider.System, provider.GetRequiredService<TimeProvider>());
     }
 

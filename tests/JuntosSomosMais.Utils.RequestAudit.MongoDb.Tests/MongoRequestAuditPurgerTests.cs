@@ -8,6 +8,7 @@ namespace JuntosSomosMais.Utils.RequestAudit.MongoDb.Tests;
 public class MongoRequestAuditPurgerTests : RequestAuditMongoTestBase
 {
     private static readonly DateTime Now = new(2026, 11, 10, 12, 0, 0, DateTimeKind.Utc);
+    private static readonly int[] ExpectedIdsPerDelete = [2, 2, 1];
 
     private readonly MongoRequestAuditPurger _purger;
 
@@ -64,7 +65,7 @@ public class MongoRequestAuditPurgerTests : RequestAuditMongoTestBase
 
         // Assert
         Assert.Equal(new RequestAuditPurgeResult(5, 5, false, Day(6)), result);
-        Assert.Equal(new[] { 2, 2, 1 }, idsPerDelete);
+        Assert.Equal(ExpectedIdsPerDelete, idsPerDelete);
         Assert.Empty(await ReadDatesAsync());
     }
 
