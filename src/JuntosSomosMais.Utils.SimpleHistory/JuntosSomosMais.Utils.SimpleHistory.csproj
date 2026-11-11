@@ -7,9 +7,6 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <MinVerTagPrefix>simplehistory/v</MinVerTagPrefix>
-    <TargetFramework></TargetFramework>
-    <TargetFrameworks>net6.0;net8.0;net10.0</TargetFrameworks>
-    <CheckEolTargetFramework>false</CheckEolTargetFramework>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="JuntosSomosMais.Utils.SimpleHistory.Tests" />
@@ -18,20 +15,10 @@
     <!-- Moq builds its proxies of the internal contracts in this assembly. -->
     <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
-  <!-- One major of Microsoft.Extensions.* per target, matching the framework the app runs on. -->
-  <ItemGroup Condition="'$(TargetFramework)' != 'net10.0'">
-    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+  <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(TargetFramework)' == 'net6.0'">
-    <!-- TimeProvider is in the BCL from .NET 8; this is its official package for older targets. -->
-    <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="8.0.1" />
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
