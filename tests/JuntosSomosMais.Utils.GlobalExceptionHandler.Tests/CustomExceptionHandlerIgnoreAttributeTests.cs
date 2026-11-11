@@ -2,7 +2,11 @@ using System.Net;
 using System.Net.Http.Json;
 using JuntosSomosMais.Utils.GlobalExceptionHandler.Responses;
 using JuntosSomosMais.Utils.GlobalExceptionHandler.Tests.Fixtures;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace JuntosSomosMais.Utils.GlobalExceptionHandler.Tests;
@@ -114,4 +118,62 @@ public class CustomExceptionHandlerIgnoreAttributeTests
             e.CategoryName == HandlerCategory && e.Exception?.Message == exceptionMessage);
         Assert.Equal(LogLevel.Error, entry.Level);
     }
+
+    // Called outside UseExceptionHandler (no IExceptionHandlerFeature): the context endpoint is the only source.
+    [Fact(DisplayName = "Should not handle when there is no exception feature and the context endpoint has the attribute")]
+    public async Task TryHandleAsync_NoFeatureAndContextEndpointWithAttribute_ShouldNotHandle()
+    {
+        // Arrange
+        var handler = CreateHandler();
+        var httpContext = new DefaultHttpContext();
+        httpContext.SetEndpoint(CreateEndpoint(new IgnoreCustomExceptionAttribute()));
+
+        // Act
+        var handled = await handler.TryHandleAsync(httpContext, new Exception("boom"), CancellationToken.None);
+
+        // Assert
+        Assert.False(handled);
+        Assert.False(httpContext.Response.HasStarted);
+        Assert.Equal(StatusCodes.Status200OK, httpContext.Response.StatusCode);
+    }
+
+    [Fact(DisplayName = "Should fall back to the context endpoint when the exception feature has no endpoint")]
+    public async Task TryHandleAsync_FeatureWithoutEndpointAndContextEndpointWithAttribute_ShouldNotHandle()
+    {
+        // Arrange
+        var handler = CreateHandler();
+        var httpContext = new DefaultHttpContext();
+        var exception = new Exception("boom");
+        httpContext.Features.Set<IExceptionHandlerFeature>(new ExceptionHandlerFeature { Error = exception, Endpoint = null });
+        httpContext.SetEndpoint(CreateEndpoint(new IgnoreCustomExceptionAttribute()));
+
+        // Act
+        var handled = await handler.TryHandleAsync(httpContext, exception, CancellationToken.None);
+
+        // Assert
+        Assert.False(handled);
+    }
+
+    [Fact(DisplayName = "Should handle when neither the exception feature nor the context has an endpoint")]
+    public async Task TryHandleAsync_NoEndpointAnywhere_ShouldHandle()
+    {
+        // Arrange
+        var handler = CreateHandler();
+        var httpContext = new DefaultHttpContext { Response = { Body = new MemoryStream() } };
+        var exception = new Exception("boom");
+        httpContext.Features.Set<IExceptionHandlerFeature>(new ExceptionHandlerFeature { Error = exception, Endpoint = null });
+
+        // Act
+        var handled = await handler.TryHandleAsync(httpContext, exception, CancellationToken.None);
+
+        // Assert
+        Assert.True(handled);
+        Assert.Equal(StatusCodes.Status500InternalServerError, httpContext.Response.StatusCode);
+    }
+
+    private static CustomExceptionHandler CreateHandler() =>
+        new(Options.Create(new CustomExceptionHandlerOptions()), NullLogger<CustomExceptionHandler>.Instance);
+
+    private static Endpoint CreateEndpoint(params object[] metadata) =>
+        new(_ => Task.CompletedTask, new EndpointMetadataCollection(metadata), "test endpoint");
 }
