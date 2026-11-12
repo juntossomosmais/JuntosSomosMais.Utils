@@ -61,6 +61,40 @@ public class ReplayStreamTests
     }
 
     [Fact]
+    public void Read_EmptyBufferBeforeTheHead_ReturnsZeroAndKeepsTheHead()
+    {
+        // Arrange
+        using var rest = new MemoryStream();
+        using var stream = new ReplayStream("ab"u8.ToArray(), rest, ExceptionDispatchInfo.Capture(new IOException("reset")));
+        var buffer = new byte[8];
+
+        // Act
+        var empty = stream.Read(Span<byte>.Empty);
+        var head = stream.Read(buffer, 0, buffer.Length);
+
+        // Assert
+        Assert.Equal(0, empty);
+        Assert.Equal(2, head);
+    }
+
+    [Fact]
+    public async Task ReadAsync_EmptyBufferBeforeTheHead_ReturnsZeroAndKeepsTheHead()
+    {
+        // Arrange
+        using var rest = new MemoryStream();
+        using var stream = new ReplayStream("ab"u8.ToArray(), rest, ExceptionDispatchInfo.Capture(new IOException("reset")));
+        var buffer = new byte[8];
+
+        // Act
+        var empty = await stream.ReadAsync(Memory<byte>.Empty);
+        var head = await stream.ReadAsync(buffer);
+
+        // Assert
+        Assert.Equal(0, empty);
+        Assert.Equal(2, head);
+    }
+
+    [Fact]
     public void Members_Unsupported_Throw()
     {
         // Arrange

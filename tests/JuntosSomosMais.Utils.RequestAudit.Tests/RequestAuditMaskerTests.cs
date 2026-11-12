@@ -357,6 +357,8 @@ public class RequestAuditMaskerTests
     [InlineData("logradouro")]
     [InlineData("whatsapp")]
     [InlineData("cvc")]
+    [InlineData("oldPasswordHash")]
+    [InlineData("ceps")]
     public void MaskFields_DefaultSensitiveName_IsMasked(string name)
     {
         // Arrange
