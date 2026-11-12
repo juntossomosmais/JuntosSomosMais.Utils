@@ -5,6 +5,9 @@
     <PackageId>JuntosSomosMais.Utils.HealthChecks</PackageId>
     <PackageTags>healthcheck aspnetcore sqlserver redis rabbitmq hangfire azureblobstorage azureservicebus mongodb elasticsearch</PackageTags>
     <MinVerTagPrefix>healthchecks/v</MinVerTagPrefix>
+    <!-- Ships the XML docs so IntelliSense shows them. Most public members have none yet, hence no CS1591. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="JuntosSomosMais.Utils.HealthChecks.Tests" />
