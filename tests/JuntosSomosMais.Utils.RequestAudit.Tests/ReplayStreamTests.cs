@@ -35,7 +35,7 @@ public class ReplayStreamTests
 
         // Act
         var head = await stream.ReadAsync(buffer);
-        var caught = await Assert.ThrowsAsync<IOException>(async () => await stream.ReadAsync(buffer));
+        var caught = await Assert.ThrowsAsync<IOException>(async () => await stream.ReadExactlyAsync(buffer));
 
         // Assert
         Assert.Equal(2, head);
