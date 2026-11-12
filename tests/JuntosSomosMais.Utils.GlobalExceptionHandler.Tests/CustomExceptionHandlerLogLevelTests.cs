@@ -89,7 +89,6 @@ public class CustomExceptionHandlerLogLevelTests : IClassFixture<LoggingWebAppFa
         Assert.Equal(LogLevel.Error, entry.Level);
     }
 
-    // The handler writes its own entry; on .NET 10 the framework middleware does not report a handled exception.
     [Fact(DisplayName = "Should write only the handler entry for a handled 4xx")]
     public async Task TryHandleAsync_HandledNotFoundException_ShouldLogOnlyHandlerEntry()
     {
@@ -136,7 +135,7 @@ public class CustomExceptionHandlerLogLevelTests : IClassFixture<LoggingWebAppFa
         Assert.Empty(middlewareEntries);
     }
 
-    // With SuppressDiagnosticsCallback returning false, .NET 10 emits the middleware entry again, as .NET 8 did.
+    // With SuppressDiagnosticsCallback returning false, the middleware entry is emitted.
     public class WithDiagnosticsKept : IClassFixture<KeepDiagnosticsWebAppFactory>
     {
         private readonly HttpClient _client;

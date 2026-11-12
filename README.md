@@ -23,7 +23,7 @@ Every package targets `net10.0` only. Services still on .NET 8 keep the last ver
 | `JuntosSomosMais.Utils.HealthChecks` | `0.1.0-test.9` | `MongoDB.Driver` 2.30.0+ (the MongoDB check needs **2.x**, see [Requirements](#requirements)), `RabbitMQ.Client` 7, `Microsoft.Data.SqlClient` 5+ |
 | `JuntosSomosMais.Utils.Instrumentation` | `0.1.0-test.9` | `FluentValidation` 11+, `JuntosSomosMais.Ziggurat` |
 | `JuntosSomosMais.Utils.Cnpj` | `0.2.0` | none |
-| `JuntosSomosMais.Utils.SimpleHistory` | `0.1.0` | `Microsoft.Extensions.*` 10.x |
+| `JuntosSomosMais.Utils.SimpleHistory` | `0.1.0` | `Microsoft.Extensions.*` 8.x in `0.1.0`, 10.x after it |
 | `JuntosSomosMais.Utils.SimpleHistory.MongoDb` | `0.1.0` | `MongoDB.Driver` **2.x** (`[2.29.0, 3.0.0)`) |
 
 Install via CLI:
