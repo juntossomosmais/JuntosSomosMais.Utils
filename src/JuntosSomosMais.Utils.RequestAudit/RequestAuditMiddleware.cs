@@ -147,7 +147,7 @@ public sealed class RequestAuditMiddleware(
             return _masker.MaskBody(contentType, [], truncated: true);
         if (request.HttpContext.Features.Get<IHttpRequestBodyDetectionFeature>() is { CanHaveBody: false })
             return (null, null);
-        if (!_masker.CanMask(contentType))
+        if (!RequestAuditMasker.CanMask(contentType))
             return (null, $"Not stored: content type '{contentType}' cannot be masked.");
 
         // One byte past the limit tells a body of exactly the limit from a larger one.
