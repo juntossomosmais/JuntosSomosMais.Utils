@@ -652,8 +652,8 @@ public class RequestAuditMaskerTests
     public void MaskBody_JsonNestedInStringsBeyondTheDepthLimit_IsKept()
     {
         // Arrange
-        // Level 0 is the body; levels 1 to MaxEmbeddedJsonDepth are masked, the next one is kept as received.
-        var levels = RequestAuditMasker.MaxEmbeddedJsonDepth + 1;
+        // Level 0 is the body; levels 1 to 3 are masked, the next one is kept as received.
+        var levels = 4;
         var innermost = """{"cpf":"1"}""";
         var text = innermost;
         for (var level = levels - 1; level >= 0; level--)
