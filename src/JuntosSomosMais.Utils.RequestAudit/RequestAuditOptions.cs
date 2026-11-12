@@ -43,8 +43,9 @@ public sealed class RequestAuditOptions
 
     /// <summary>
     /// JSON properties (at any depth, also inside JSON held in a string value), form fields and query parameters
-    /// whose value is masked. Names are compared exactly on their last segment (<c>Input.Address</c>,
-    /// <c>user[cep]</c>), ignoring case, <c>_</c> and <c>-</c>, and also match their plural (<c>emails</c>,
+    /// whose value is masked. A key is masked when any of its named segments (not the numeric indexes) matches
+    /// (<c>Input.Address</c>, <c>user[cep]</c>, <c>customer.phone.number</c>; a JSON key with dots is judged per
+    /// segment too). Names are compared exactly, ignoring case, <c>_</c> and <c>-</c>, and also match their plural (<c>emails</c>,
     /// <c>addresses</c>). Short or ambiguous terms belong here, not in <see cref="SensitiveNameParts"/>: <c>rg</c> or
     /// <c>cep</c> as parts would mask <c>orgId</c> or <c>accepted</c>.
     /// </summary>

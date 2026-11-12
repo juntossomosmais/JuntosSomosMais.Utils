@@ -25,15 +25,15 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
     private static readonly char[] KeySeparators = ['.', '[', ']'];
 
     private readonly HashSet<string> _sensitiveFields =
-        options.SensitiveFields.Select(NormalizeFieldName).ToHashSet(StringComparer.Ordinal);
+        options.SensitiveFields.Select(term => NormalizeKey(term)[^1]).ToHashSet(StringComparer.Ordinal);
 
     private readonly string[] _sensitiveParts =
-        options.SensitiveNameParts.Select(NormalizeFieldName).Where(part => part.Length > 0).Distinct().ToArray();
+        options.SensitiveNameParts.Select(term => NormalizeKey(term)[^1]).Where(part => part.Length > 0).Distinct().ToArray();
 
     internal Dictionary<string, string> MaskHeaders(IEnumerable<KeyValuePair<string, StringValues>> headers) =>
         headers.ToDictionary(
             pair => pair.Key,
-            pair => options.SensitiveHeaders.Contains(pair.Key) || ContainsSensitivePart(NormalizeFieldName(pair.Key))
+            pair => options.SensitiveHeaders.Contains(pair.Key) || NormalizeKey(pair.Key).Any(ContainsSensitivePart)
                 ? Mask
                 : pair.Value.ToString(),
             StringComparer.OrdinalIgnoreCase);
@@ -60,12 +60,23 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
         };
     }
 
-    internal static string NormalizeFieldName(string name)
+    /// <summary>
+    /// Every named (not numeric) segment of a key, normalized: without <c>_</c> and <c>-</c>, lower case. The key
+    /// itself, normalized, when it has none.
+    /// </summary>
+    internal static string[] NormalizeKey(string name)
     {
-        var segment = name
+        var segments = name
             .Split(KeySeparators, StringSplitOptions.RemoveEmptyEntries)
-            .LastOrDefault(part => !part.All(char.IsAsciiDigit)) ?? name;
+            .Where(part => !part.All(char.IsAsciiDigit))
+            .Select(Normalize)
+            .ToArray();
 
+        return segments.Length > 0 ? segments : [Normalize(name)];
+    }
+
+    private static string Normalize(string segment)
+    {
         var normalized = new StringBuilder(segment.Length);
         foreach (var character in segment.Where(character => character is not ('_' or '-')))
             normalized.Append(char.ToLowerInvariant(character));
@@ -73,14 +84,13 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
         return normalized.ToString();
     }
 
-    private bool IsSensitiveField(string name)
-    {
-        var normalized = NormalizeFieldName(name);
-        return _sensitiveFields.Contains(normalized)
-               || (normalized.EndsWith('s') && _sensitiveFields.Contains(normalized[..^1]))
-               || (normalized.EndsWith("es", StringComparison.Ordinal) && _sensitiveFields.Contains(normalized[..^2]))
-               || ContainsSensitivePart(normalized);
-    }
+    private bool IsSensitiveField(string name) => NormalizeKey(name).Any(IsSensitiveSegment);
+
+    private bool IsSensitiveSegment(string normalized) =>
+        _sensitiveFields.Contains(normalized)
+        || (normalized.EndsWith('s') && _sensitiveFields.Contains(normalized[..^1]))
+        || (normalized.EndsWith("es", StringComparison.Ordinal) && _sensitiveFields.Contains(normalized[..^2]))
+        || ContainsSensitivePart(normalized);
 
     private bool ContainsSensitivePart(string normalized) =>
         _sensitiveParts.Any(part => normalized.Contains(part, StringComparison.Ordinal));

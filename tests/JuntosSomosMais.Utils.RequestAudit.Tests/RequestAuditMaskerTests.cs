@@ -238,7 +238,7 @@ public class RequestAuditMaskerTests
     }
 
     [Fact]
-    public void MaskBody_UrlEncodedFormWithModelBoundKeys_MasksByTheLastSegment()
+    public void MaskBody_UrlEncodedFormWithModelBoundKeys_MasksByTheNamedSegments()
     {
         // Arrange
         var body = Bytes("Input.Password=p&user%5Bpassword%5D=p&user%5Bname%5D=n&phones%5B0%5D=1&Input.UserName=u");
@@ -253,7 +253,7 @@ public class RequestAuditMaskerTests
     }
 
     [Fact]
-    public void MaskFields_ModelBoundQueryKeys_MasksByTheLastSegment()
+    public void MaskFields_ModelBoundQueryKeys_MasksByTheNamedSegments()
     {
         // Arrange
         var query = new Dictionary<string, StringValues>
@@ -387,21 +387,48 @@ public class RequestAuditMaskerTests
     }
 
     [Theory]
-    [InlineData("access_token", "accesstoken")]
-    [InlineData("Input.Password", "password")]
-    [InlineData("user[password]", "password")]
-    [InlineData("user[phones][0]", "phones")]
-    [InlineData("items[0]", "items")]
-    [InlineData("items[2fa]", "2fa")]
-    [InlineData("0", "0")]
-    [InlineData("", "")]
-    public void NormalizeFieldName_Key_KeepsTheLastNamedSegment(string name, string expected)
+    [InlineData("access_token", new[] { "accesstoken" })]
+    [InlineData("Input.Password", new[] { "input", "password" })]
+    [InlineData("user[password]", new[] { "user", "password" })]
+    [InlineData("user[phones][0]", new[] { "user", "phones" })]
+    [InlineData("items[0]", new[] { "items" })]
+    [InlineData("items[2fa]", new[] { "items", "2fa" })]
+    [InlineData("0", new[] { "0" })]
+    [InlineData("", new[] { "" })]
+    public void NormalizeKey_Key_KeepsEveryNamedSegment(string name, string[] expected)
     {
         // Act
-        var normalized = RequestAuditMasker.NormalizeFieldName(name);
+        var normalized = RequestAuditMasker.NormalizeKey(name);
 
         // Assert
         Assert.Equal(expected, normalized);
+    }
+
+    [Fact]
+    public void MaskFields_SensitiveNameInAnyNamedSegment_IsMasked()
+    {
+        // Arrange
+        var fields = new Dictionary<string, StringValues>
+        {
+            ["customer.phone.number"] = "1",
+            ["customer[phone][number]"] = "1",
+            ["phones[0].number"] = "1",
+            ["customer.name.first"] = "Ana",
+        };
+
+        // Act
+        var masked = Masker.MaskFields(fields);
+
+        // Assert
+        Assert.Equal(
+            new Dictionary<string, string>
+            {
+                ["customer.phone.number"] = "***",
+                ["customer[phone][number]"] = "***",
+                ["phones[0].number"] = "***",
+                ["customer.name.first"] = "Ana",
+            },
+            masked);
     }
 
     [Theory]
@@ -540,14 +567,14 @@ public class RequestAuditMaskerTests
     [Theory]
     [InlineData("__Access--Token__", "accesstoken")]
     [InlineData("-_-", "")]
-    public void NormalizeFieldName_UnderscoresAndHyphens_AreDropped(string name, string expected)
+    public void NormalizeKey_UnderscoresAndHyphens_AreDropped(string name, string expected)
     {
         // Arrange
         // Act
-        var normalized = RequestAuditMasker.NormalizeFieldName(name);
+        var normalized = RequestAuditMasker.NormalizeKey(name);
 
         // Assert
-        Assert.Equal(expected, normalized);
+        Assert.Equal(new[] { expected }, normalized);
     }
 
     [Theory]
