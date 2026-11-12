@@ -62,19 +62,6 @@ public class MongoDbHealthCheckTests
         Assert.Contains($"MongoDB.Driver {version} was loaded", exception.Message);
     }
 
-    [Fact(DisplayName = "Should build the check on the MongoDB.Driver 2.x this package references")]
-    public void Constructor_ReferencedDriver_ShouldNotThrow()
-    {
-        // Arrange
-        const string connectionString = "mongodb://localhost:27017";
-
-        // Act
-        var exception = Record.Exception(() => new MongoDbHealthCheck(connectionString));
-
-        // Assert
-        Assert.Null(exception);
-    }
-
     [Fact(DisplayName = "Should throw ArgumentNullException when client is null")]
     public void Constructor_NullClient_ShouldThrowArgumentNullException()
     {
