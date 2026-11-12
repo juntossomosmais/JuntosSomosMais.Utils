@@ -103,9 +103,10 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
             var node = MaskNode(JsonNode.Parse(body), embeddedDepth: 0, ref failedParses);
             return (node?.ToJsonString(JsonOptions) ?? "null", null);
         }
-        catch (Exception ex) when (ex is JsonException or ArgumentException)
+        catch (Exception ex) when (ex is JsonException or ArgumentException or InvalidOperationException)
         {
-            // ArgumentException: a duplicated property name, found only when the object is walked.
+            // Found only when the body is walked: a duplicated property name (ArgumentException) or a string
+            // that cannot be decoded, also inside embedded JSON (InvalidOperationException).
             return (null, $"Not stored: invalid JSON ({body.Length} bytes).");
         }
     }
@@ -154,8 +155,7 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
 
     /// <summary>
     /// Masks a string value holding a JSON object or array (common in webhooks) and returns it re-serialized, or
-    /// null when it is not such a value. Once <see cref="MaxFailedEmbeddedJsonParses"/> parses failed, a string that
-    /// looks like JSON is replaced by <see cref="Mask"/> without being parsed.
+    /// null when it is not such a value, or <see cref="Mask"/> once the failed parses ran out.
     /// </summary>
     private string? MaskEmbeddedJson(string text, int embeddedDepth, ref int failedParses)
     {

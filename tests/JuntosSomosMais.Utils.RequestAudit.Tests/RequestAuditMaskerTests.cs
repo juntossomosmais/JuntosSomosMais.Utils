@@ -152,6 +152,8 @@ public class RequestAuditMaskerTests
     [InlineData("{\"key\":")]
     [InlineData("not json")]
     [InlineData("{\"a\":1,\"a\":2}")]
+    [InlineData("{\"a\":\"\\uD800\"}")]
+    [InlineData("{\"payload\":\"{\\\"cpf\\\":\\\"1\\\",\\\"a\\\":\\\"\\\\uD800\\\"}\"}")]
     public void MaskBody_InvalidJson_IsNotStored(string json)
     {
         // Arrange
