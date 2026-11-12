@@ -1178,7 +1178,6 @@ public class RequestAuditMiddlewareTests
         public void Fire() => _callback!(_state);
     }
 
-    /// <summary>A request body that records the token given to the read.</summary>
     private sealed class TokenRecordingStream(byte[] data) : MemoryStream(data)
     {
         public CancellationToken? ReadToken { get; private set; }

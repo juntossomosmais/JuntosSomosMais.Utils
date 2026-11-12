@@ -4,7 +4,7 @@ namespace JuntosSomosMais.Utils.RequestAudit;
 
 /// <summary>
 /// Read-only stream that gives back bytes already read from <paramref name="rest"/>, then the failure that stopped
-/// that read (if any), then the rest of the original stream. It never disposes <paramref name="rest"/>: the server owns it.
+/// that read, or else the rest of the original stream. It never disposes <paramref name="rest"/>: the server owns it.
 /// </summary>
 internal sealed class ReplayStream(ReadOnlyMemory<byte> head, Stream rest, ExceptionDispatchInfo? failure) : Stream
 {

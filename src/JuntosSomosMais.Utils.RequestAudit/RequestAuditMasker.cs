@@ -16,8 +16,7 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
     internal const int MaxEmbeddedJsonDepth = 3;
 
     /// <summary>
-    /// How many strings per body that look like JSON but are not are parsed before the rest are masked unparsed: each
-    /// failed parse throws, which makes a body full of them a cheap way to burn CPU.
+    /// How many strings per body that look like JSON but are not are parsed before the rest are masked unparsed.
     /// </summary>
     internal const int MaxFailedEmbeddedJsonParses = 100;
 

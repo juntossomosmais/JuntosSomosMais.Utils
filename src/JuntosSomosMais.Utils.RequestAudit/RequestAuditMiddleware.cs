@@ -135,7 +135,6 @@ public sealed class RequestAuditMiddleware(
         }
         catch (Exception ex)
         {
-            // Auditing never breaks the request it observes.
             logger.LogError(ex, "The request audit entry could not be saved.");
         }
     }
