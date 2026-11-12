@@ -15,6 +15,12 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
     /// <summary>How many levels of JSON held in a string value (inside another such string) are parsed and masked.</summary>
     internal const int MaxEmbeddedJsonDepth = 3;
 
+    /// <summary>
+    /// How many strings per body that look like JSON but are not are parsed before the rest are masked unparsed: each
+    /// failed parse throws, which makes a body full of them a cheap way to burn CPU.
+    /// </summary>
+    internal const int MaxFailedEmbeddedJsonParses = 100;
+
     private static readonly JsonSerializerOptions JsonOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
     private static readonly char[] KeySeparators = ['.', '[', ']'];
 
@@ -83,7 +89,8 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
     {
         try
         {
-            var node = MaskNode(JsonNode.Parse(body), embeddedDepth: 0);
+            var failedParses = 0;
+            var node = MaskNode(JsonNode.Parse(body), embeddedDepth: 0, ref failedParses);
             return (node?.ToJsonString(JsonOptions) ?? "null", null);
         }
         catch (Exception ex) when (ex is JsonException or ArgumentException)
@@ -94,21 +101,21 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
     }
 
     /// <summary>Masks the node in place and returns it, or returns the node replacing it (a masked embedded JSON).</summary>
-    private JsonNode? MaskNode(JsonNode? node, int embeddedDepth) => node switch
+    private JsonNode? MaskNode(JsonNode? node, int embeddedDepth, ref int failedParses) => node switch
     {
-        JsonArray array => MaskArray(array, embeddedDepth),
-        JsonObject json => MaskObject(json, embeddedDepth),
+        JsonArray array => MaskArray(array, embeddedDepth, ref failedParses),
+        JsonObject json => MaskObject(json, embeddedDepth, ref failedParses),
         JsonValue value when embeddedDepth < MaxEmbeddedJsonDepth && value.TryGetValue<string>(out var text) =>
-            MaskEmbeddedJson(text, embeddedDepth + 1) is { } maskedText ? JsonValue.Create(maskedText) : value,
+            MaskEmbeddedJson(text, embeddedDepth + 1, ref failedParses) is { } maskedText ? JsonValue.Create(maskedText) : value,
         _ => node,
     };
 
-    private JsonArray MaskArray(JsonArray array, int embeddedDepth)
+    private JsonArray MaskArray(JsonArray array, int embeddedDepth, ref int failedParses)
     {
         for (var index = 0; index < array.Count; index++)
         {
             var item = array[index];
-            var masked = MaskNode(item, embeddedDepth);
+            var masked = MaskNode(item, embeddedDepth, ref failedParses);
             if (!ReferenceEquals(masked, item))
                 array[index] = masked;
         }
@@ -116,7 +123,7 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
         return array;
     }
 
-    private JsonObject MaskObject(JsonObject json, int embeddedDepth)
+    private JsonObject MaskObject(JsonObject json, int embeddedDepth, ref int failedParses)
     {
         foreach (var name in json.Select(property => property.Key).ToList())
         {
@@ -127,7 +134,7 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
             }
 
             var child = json[name];
-            var masked = MaskNode(child, embeddedDepth);
+            var masked = MaskNode(child, embeddedDepth, ref failedParses);
             if (!ReferenceEquals(masked, child))
                 json[name] = masked;
         }
@@ -137,21 +144,25 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
 
     /// <summary>
     /// Masks a string value holding a JSON object or array (common in webhooks) and returns it re-serialized, or
-    /// null when it is not such a value.
+    /// null when it is not such a value. Once <see cref="MaxFailedEmbeddedJsonParses"/> parses failed, a string that
+    /// looks like JSON is replaced by <see cref="Mask"/> without being parsed.
     /// </summary>
-    private string? MaskEmbeddedJson(string text, int embeddedDepth)
+    private string? MaskEmbeddedJson(string text, int embeddedDepth, ref int failedParses)
     {
         var trimmed = text.AsSpan().TrimStart();
         if (trimmed.IsEmpty || trimmed[0] is not ('{' or '['))
             return null;
 
+        if (failedParses >= MaxFailedEmbeddedJsonParses)
+            return Mask;
+
         try
         {
-            return MaskNode(JsonNode.Parse(text), embeddedDepth)?.ToJsonString(JsonOptions);
+            return MaskNode(JsonNode.Parse(text), embeddedDepth, ref failedParses)?.ToJsonString(JsonOptions);
         }
         catch (Exception ex) when (ex is JsonException or ArgumentException)
         {
-            // Not JSON after all: kept as received.
+            failedParses++;
             return null;
         }
     }

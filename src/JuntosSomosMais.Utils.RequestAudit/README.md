@@ -67,7 +67,7 @@ Field names, and header names checked against `SensitiveNameParts`, are compared
 
 **Exact-only terms.** Short or common terms are in `SensitiveFields` only, because as parts they would mask unrelated names: `rg` (`orgId`, `cargo`), `cep` (`accepted`, `exception`), `address` (`ipAddress`), `street` (`streetNumber`), `district`, `cvv`. `ipAddress` is therefore stored, and so is a field like `streetNumber`.
 
-**Where it applies.** JSON properties at any depth; a sensitive key holding an object or array is masked whole (`"address": {...}` becomes `"address": "***"`). A string value holding JSON (common in webhooks, `"payload": "{\"cpf\":\"...\"}"`) is parsed, masked by the same names and stored back as a string, up to 3 levels of JSON inside strings; a string that is not valid JSON is kept as received.
+**Where it applies.** JSON properties at any depth; a sensitive key holding an object or array is masked whole (`"address": {...}` becomes `"address": "***"`). A string value holding JSON (common in webhooks, `"payload": "{\"cpf\":\"...\"}"`) is parsed, masked by the same names and stored back as a string, up to 3 levels of JSON inside strings; a string that is not valid JSON is kept as received. After 100 strings in one body that look like JSON but are not, later strings starting with `{` or `[` are stored as `***`.
 
 **Not masked by default:** `name` and `nome` (names of companies and people are often needed to read an audit), `city`, `state`, order and product fields. Add them if your service must not store them.
 

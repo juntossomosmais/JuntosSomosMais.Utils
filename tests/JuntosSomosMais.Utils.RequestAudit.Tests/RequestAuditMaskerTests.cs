@@ -570,6 +570,40 @@ public class RequestAuditMaskerTests
         Assert.Equal(text, JsonNode.Parse(masked!)!["note"]!.GetValue<string>());
     }
 
+    [Theory]
+    [InlineData(99, """{"cpf":"***"}""")]
+    [InlineData(100, "***")]
+    public void MaskBody_EmbeddedJsonAfterFailedParses_IsParsedOnlyWithinTheBudget(int failures, string expected)
+    {
+        // Arrange
+        var body = BodyWithFailedParsesThenEmbeddedJson(failures);
+
+        // Act
+        var (masked, note) = Masker.MaskBody("application/json", Bytes(body), truncated: false);
+
+        // Assert
+        Assert.Null(note);
+        var items = JsonNode.Parse(masked!)!.AsArray();
+        Assert.Equal(failures + 1, items.Count);
+        Assert.Equal(expected, items[^1]!.GetValue<string>());
+        Assert.All(items.Take(failures), item => Assert.Equal("{", item!.GetValue<string>()));
+    }
+
+    [Fact]
+    public void MaskBody_FailedParsesOfAnEarlierBody_DoNotCountAgainstTheNext()
+    {
+        // Arrange
+        var masker = Masker;
+        var body = Bytes(BodyWithFailedParsesThenEmbeddedJson(99));
+        masker.MaskBody("application/json", Bytes(BodyWithFailedParsesThenEmbeddedJson(100)), truncated: false);
+
+        // Act
+        var (masked, _) = masker.MaskBody("application/json", body, truncated: false);
+
+        // Assert
+        Assert.Equal("""{"cpf":"***"}""", JsonNode.Parse(masked!)!.AsArray()[^1]!.GetValue<string>());
+    }
+
     [Fact]
     public void MaskBody_JsonNestedInStringsBeyondTheDepthLimit_IsKept()
     {
@@ -628,6 +662,16 @@ public class RequestAuditMaskerTests
         Assert.Equal(
             new Dictionary<string, string> { ["email"] = "a@b.c", ["userEmail"] = "a@b.c", ["cpf"] = "***" },
             masked);
+    }
+
+    private static string BodyWithFailedParsesThenEmbeddedJson(int failures)
+    {
+        var items = new JsonArray();
+        for (var index = 0; index < failures; index++)
+            items.Add("{");
+
+        items.Add("""{"cpf":"1"}""");
+        return items.ToJsonString();
     }
 
     private static byte[] Bytes(string text) => Encoding.UTF8.GetBytes(text.Trim());
