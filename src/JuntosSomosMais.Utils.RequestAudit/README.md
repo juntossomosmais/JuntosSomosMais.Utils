@@ -93,7 +93,7 @@ Not masked:
 - the URL path (only the query string goes through the field rules), so keep secrets out of route values;
 - the `Referer` header, which can carry another page's query string; add it to `SensitiveHeaders` if that matters.
 
-`CallerClaims` matches claim types as they are on the `ClaimsPrincipal`. With JwtBearer's default `MapInboundClaims = true`, the `sub` claim arrives as `ClaimTypes.NameIdentifier`, so either add that type to `CallerClaims` or set `MapInboundClaims = false`.
+`CallerClaims` matches claim types as they are on the `ClaimsPrincipal`. The exception is `sub`: when the principal has no `sub` (JwtBearer's default `MapInboundClaims = true` renames it to `ClaimTypes.NameIdentifier`), that claim is read instead and still stored as `sub`. A real `sub` wins.
 
 ## Bodies
 

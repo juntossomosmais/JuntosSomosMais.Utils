@@ -177,9 +177,14 @@ public sealed class RequestAuditMiddleware(
     private Dictionary<string, string> ReadCaller(ClaimsPrincipal user) =>
         _options.CallerClaims
             .Distinct()
-            .Select(type => (Type: type, Value: user.FindFirst(type)?.Value))
+            .Select(type => (Type: type, Value: FindClaim(user, type)?.Value))
             .Where(claim => claim.Value is not null)
             .ToDictionary(claim => claim.Type, claim => claim.Value!);
+
+    // JwtBearer's default MapInboundClaims renames sub to NameIdentifier; the entry keeps the name the token has.
+    private static Claim? FindClaim(ClaimsPrincipal user, string type) =>
+        user.FindFirst(type)
+        ?? (type.Equals("sub", StringComparison.OrdinalIgnoreCase) ? user.FindFirst(ClaimTypes.NameIdentifier) : null);
 
     private sealed class PendingAudit
     {

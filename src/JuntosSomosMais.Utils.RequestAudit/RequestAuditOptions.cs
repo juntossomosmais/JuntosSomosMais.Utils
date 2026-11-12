@@ -69,6 +69,10 @@ public sealed class RequestAuditOptions
         "cpf", "cnpj", "email", "document", "phone", "telefone", "celular", "cardnumber", "birth", "nascimento",
     };
 
-    /// <summary>Claim types copied from the authenticated user into the entry.</summary>
+    /// <summary>
+    /// Claim types copied from the authenticated user into the entry. <c>sub</c> falls back to the
+    /// <see cref="System.Security.Claims.ClaimTypes.NameIdentifier"/> claim, where JwtBearer's default claim mapping
+    /// puts it, and is stored as <c>sub</c>.
+    /// </summary>
     public IList<string> CallerClaims { get; } = new List<string> { "sub", "client_id", "azp" };
 }

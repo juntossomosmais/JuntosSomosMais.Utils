@@ -745,6 +745,45 @@ public class RequestAuditMiddlewareTests
         Assert.Equal($"{body}|value", await response.Content.ReadAsStringAsync());
     }
 
+    [Theory]
+    [InlineData(false, "user-1")]
+    [InlineData(true, "user-1")]
+    public async Task InvokeAsync_SubClaimMappedToNameIdentifier_SavesItAsSub(bool withSub, string expected)
+    {
+        // Arrange
+        RequestAuditEntry? saved = null;
+        var store = new Mock<IRequestAuditStore>();
+        store.Setup(s => s.SaveAsync(It.IsAny<RequestAuditEntry>(), It.IsAny<CancellationToken>()))
+            .Callback<RequestAuditEntry, CancellationToken>((entry, _) => saved = entry)
+            .Returns(Task.CompletedTask);
+        var responseFeature = new CompletableResponseFeature();
+        var context = new DefaultHttpContext();
+        context.Features.Set<IHttpResponseFeature>(responseFeature);
+        context.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(new AuditRequestAttribute()), "test"));
+        var claims = new List<System.Security.Claims.Claim>
+        {
+            new(System.Security.Claims.ClaimTypes.NameIdentifier, withSub ? "other" : "user-1"),
+        };
+        if (withSub)
+            claims.Add(new System.Security.Claims.Claim("sub", "user-1"));
+
+        context.User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(claims, "Test"));
+        var middleware = new RequestAuditMiddleware(
+            _ => Task.CompletedTask,
+            store.Object,
+            Options.Create(new RequestAuditOptions()),
+            TimeProvider.System,
+            NullLogger<RequestAuditMiddleware>.Instance);
+
+        // Act
+        await middleware.InvokeAsync(context);
+        await responseFeature.CompleteAsync();
+
+        // Assert
+        Assert.NotNull(saved);
+        Assert.Equal(new Dictionary<string, string> { ["sub"] = expected }, saved.Caller);
+    }
+
     [Fact]
     public async Task InvokeAsync_CallerClaimListedTwice_SavesItOnce()
     {
