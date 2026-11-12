@@ -10,7 +10,6 @@ using Microsoft.Extensions.Options;
 
 namespace JuntosSomosMais.Utils.RequestAudit.Tests;
 
-// Stryker: the survivor "ContentLength ?? long.MaxValue" -> "long.MaxValue" is equivalent; it only sizes the buffer.
 public class RequestAuditMiddlewareTests
 {
     private const string EchoRoute = "/audited/echo";
