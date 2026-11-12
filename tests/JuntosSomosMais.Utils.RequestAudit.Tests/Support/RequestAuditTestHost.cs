@@ -112,6 +112,7 @@ internal sealed class RequestAuditTestHost : IAsyncDisposable
         endpoints.MapPost("/audited/throw", ThrowAsync).WithMetadata(audited);
         endpoints.MapGet("/audited/secure", WriteNoContentAsync).RequireAuthorization().WithMetadata(audited);
         endpoints.MapGet("/audited/admin", WriteNoContentAsync).RequireAuthorization("admin").WithMetadata(audited);
+        endpoints.MapPost("/audited/reread", RereadAsync).WithMetadata(audited);
         endpoints.MapGet("/audited/pipe", WriteToThePipeWithoutFlushing).WithMetadata(audited);
         endpoints.MapGet("/audited/completed", WriteAndCompleteAsync).WithMetadata(audited);
     }
@@ -126,6 +127,18 @@ internal sealed class RequestAuditTestHost : IAsyncDisposable
         context.Response.Headers[TraceIdHeader] = context.TraceIdentifier;
         context.Response.Headers.SetCookie = "session=abc";
         await context.Response.WriteAsync(body);
+    }
+
+    // What model binding does after a middleware that reads the body: buffer, read, rewind, then bind the form.
+    private static async Task RereadAsync(HttpContext context)
+    {
+        context.Request.EnableBuffering();
+        using var reader = new StreamReader(context.Request.Body, leaveOpen: true);
+        var text = await reader.ReadToEndAsync();
+        context.Request.Body.Position = 0;
+
+        var form = await context.Request.ReadFormAsync();
+        await context.Response.WriteAsync($"{text}|{form["key"]}");
     }
 
     private static Task WriteNoContentAsync(HttpContext context)

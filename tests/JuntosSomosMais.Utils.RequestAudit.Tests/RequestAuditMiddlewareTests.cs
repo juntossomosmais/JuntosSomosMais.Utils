@@ -146,12 +146,14 @@ public class RequestAuditMiddlewareTests
     }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task InvokeAsync_BodiesLargerThanTheLimit_AreDeliveredButNotSaved(bool withContentLength)
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    public async Task InvokeAsync_BodiesLargerThanTheLimit_AreDeliveredButNotSaved(bool withContentLength, bool onKestrel)
     {
         // Arrange
-        await using var host = await RequestAuditTestHost.StartAsync(options => options.MaxBodyBytes = 20);
+        await using var host = await RequestAuditTestHost.StartAsync(options => options.MaxBodyBytes = 20, onKestrel: onKestrel);
         const string body = """{"key":"a value longer than the limit"}""";
         HttpContent content = withContentLength
             ? Json(body)
@@ -423,7 +425,7 @@ public class RequestAuditMiddlewareTests
         context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.4");
         context.Request.Method = "POST";
         context.Request.ContentType = "application/json";
-        context.Request.Body = new BrokenStream(failure);
+        context.Request.Body = new BrokenStream(failure, []);
         var responseBody = context.Response.Body;
         var middleware = new RequestAuditMiddleware(
             current =>
@@ -624,6 +626,123 @@ public class RequestAuditMiddlewareTests
         Assert.Equal(0, requestBody.Position);
         Assert.NotNull(saved);
         Assert.Equal("Not stored: larger than 10 bytes.", saved.RequestBodyNote);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_BodyWithoutContentLengthOverTheLimit_IsHandedOnUnbuffered()
+    {
+        // Arrange
+        var options = new RequestAuditOptions { MaxBodyBytes = 10 };
+        RequestAuditEntry? saved = null;
+        var store = new Mock<IRequestAuditStore>();
+        store.Setup(s => s.SaveAsync(It.IsAny<RequestAuditEntry>(), It.IsAny<CancellationToken>()))
+            .Callback<RequestAuditEntry, CancellationToken>((entry, _) => saved = entry)
+            .Returns(Task.CompletedTask);
+        var responseFeature = new CompletableResponseFeature();
+        var context = new DefaultHttpContext();
+        context.Features.Set<IHttpResponseFeature>(responseFeature);
+        context.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(new AuditRequestAttribute()), "test"));
+        context.Request.Method = "POST";
+        context.Request.ContentType = "application/json";
+        var requestBody = new UnknownLengthStream(Encoding.UTF8.GetBytes(new string('a', 30)));
+        context.Request.Body = requestBody;
+        long? positionOnEntry = null;
+        bool? seekable = null;
+        var received = string.Empty;
+        var middleware = new RequestAuditMiddleware(
+            async current =>
+            {
+                positionOnEntry = requestBody.Position;
+                seekable = current.Request.Body.CanSeek;
+                using var reader = new StreamReader(current.Request.Body);
+                received = await reader.ReadToEndAsync();
+            },
+            store.Object,
+            Options.Create(options),
+            TimeProvider.System,
+            NullLogger<RequestAuditMiddleware>.Instance);
+
+        // Act
+        await middleware.InvokeAsync(context);
+        await responseFeature.CompleteAsync();
+
+        // Assert
+        Assert.Equal(11, positionOnEntry);
+        Assert.False(seekable);
+        Assert.Equal(new string('a', 30), received);
+        Assert.NotNull(saved);
+        Assert.Null(saved.RequestBody);
+        Assert.Equal("Not stored: larger than 10 bytes.", saved.RequestBodyNote);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_RequestBodyFailsAfterSomeBytes_EndpointReadsThoseBytesThenTheSameFailure()
+    {
+        // Arrange
+        var failure = new IOException("The client reset the request stream.");
+        RequestAuditEntry? saved = null;
+        var store = new Mock<IRequestAuditStore>();
+        store.Setup(s => s.SaveAsync(It.IsAny<RequestAuditEntry>(), It.IsAny<CancellationToken>()))
+            .Callback<RequestAuditEntry, CancellationToken>((entry, _) => saved = entry)
+            .Returns(Task.CompletedTask);
+        var responseFeature = new CompletableResponseFeature();
+        var context = new DefaultHttpContext();
+        context.Features.Set<IHttpResponseFeature>(responseFeature);
+        context.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(new AuditRequestAttribute()), "test"));
+        context.Request.Method = "POST";
+        context.Request.ContentType = "application/json";
+        context.Request.Body = new BrokenStream(failure, "abc"u8.ToArray());
+        var received = new MemoryStream();
+        Exception? caught = null;
+        var middleware = new RequestAuditMiddleware(
+            async current =>
+            {
+                try
+                {
+                    await current.Request.Body.CopyToAsync(received);
+                }
+                catch (Exception ex)
+                {
+                    caught = ex;
+                }
+            },
+            store.Object,
+            Options.Create(new RequestAuditOptions()),
+            TimeProvider.System,
+            NullLogger<RequestAuditMiddleware>.Instance);
+
+        // Act
+        await middleware.InvokeAsync(context);
+        await responseFeature.CompleteAsync();
+
+        // Assert
+        Assert.Equal("abc", Encoding.UTF8.GetString(received.ToArray()));
+        Assert.Same(failure, caught);
+        Assert.NotNull(saved);
+        Assert.Null(saved.RequestBody);
+        Assert.Equal("Not stored: the request body could not be read.", saved.RequestBodyNote);
+    }
+
+    [Theory]
+    [InlineData(false, 10)]
+    [InlineData(false, 1000)]
+    [InlineData(true, 10)]
+    [InlineData(true, 1000)]
+    public async Task InvokeAsync_EndpointBuffersAndRereadsAChunkedForm_GetsTheWholeBody(bool onKestrel, int maxBodyBytes)
+    {
+        // Arrange
+        await using var host = await RequestAuditTestHost.StartAsync(options => options.MaxBodyBytes = maxBodyBytes, onKestrel: onKestrel);
+        const string body = "key=value&other=0123456789";
+        var content = new StreamContent(new UnknownLengthStream(Encoding.UTF8.GetBytes(body)))
+        {
+            Headers = { { "Content-Type", "application/x-www-form-urlencoded" } },
+        };
+
+        // Act
+        var response = await host.Client.PostAsync("/audited/reread", content);
+
+        // Assert
+        Assert.Equal($"{body}|value", await response.Content.ReadAsStringAsync());
     }
 
     [Fact]
@@ -895,13 +1014,14 @@ public class RequestAuditMiddlewareTests
         new InvalidDataException("The request body could not be decompressed."),
     };
 
-    private sealed class BrokenStream(Exception failure) : MemoryStream
+    /// <summary>Gives its data, then fails.</summary>
+    private sealed class BrokenStream(Exception failure, byte[] data) : MemoryStream(data)
     {
         public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
-            throw failure;
+            Position < Length ? base.ReadAsync(buffer, cancellationToken) : throw failure;
 
         public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
-            throw failure;
+            Position < Length ? base.ReadAsync(buffer, offset, count, cancellationToken) : throw failure;
     }
 
     /// <summary>Response feature that runs the completion callbacks when the test says the response was sent.</summary>

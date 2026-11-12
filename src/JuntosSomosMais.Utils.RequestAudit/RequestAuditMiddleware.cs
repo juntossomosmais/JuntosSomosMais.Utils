@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -145,21 +146,27 @@ public sealed class RequestAuditMiddleware(
         if (request.ContentLength > limit)
             return _masker.MaskBody(contentType, [], truncated: true);
 
+        // One byte past the limit tells a body of exactly the limit from a larger one.
+        var buffer = new byte[(int)Math.Min(request.ContentLength ?? long.MaxValue, limit + 1L)];
+        var read = 0;
         try
         {
-            request.EnableBuffering();
-
-            // One byte past the limit tells a body of exactly the limit from a larger one.
-            var buffer = new byte[(int)Math.Min(request.ContentLength ?? long.MaxValue, limit + 1L)];
-            var read = await request.Body.ReadAtLeastAsync(buffer, buffer.Length, throwOnEndOfStream: false, cancellationToken);
-            request.Body.Position = 0;
-
-            return _masker.MaskBody(contentType, buffer[..Math.Min(read, limit)], read > limit);
+            int count;
+            while (read < buffer.Length && (count = await request.Body.ReadAsync(buffer.AsMemory(read), cancellationToken)) > 0)
+                read += count;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            // The endpoint gets the bytes consumed so far and then the same failure, as without the audit.
+            request.Body = new ReplayStream(buffer.AsMemory(0, read), request.Body, ExceptionDispatchInfo.Capture(ex));
             return (null, "Not stored: the request body could not be read.");
         }
+
+        request.Body = read <= limit
+            ? new MemoryStream(buffer, 0, read, writable: false)
+            : new ReplayStream(buffer.AsMemory(0, read), request.Body, failure: null);
+
+        return _masker.MaskBody(contentType, buffer[..Math.Min(read, limit)], read > limit);
     }
 
     private string? ReadIpAddress(HttpContext context) =>

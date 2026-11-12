@@ -115,6 +115,7 @@ A body is stored only when it can be masked: JSON (`application/json`, `+json`) 
 - **Auditing never breaks the request.** If the store fails, the error is logged and the response is unaffected.
 - **Responses written by an exception handler are recorded**, also when the handler is placed before this middleware.
 - **The response is never buffered.** It is copied while it is written, up to `MaxBodyBytes`.
+- **The request body is never buffered beyond `MaxBodyBytes` + 1 bytes**, with or without `Content-Length`, and the endpoint reads it unchanged (a failed read is replayed to it too).
 - `Enabled = false` turns everything off without removing the middleware.
 - **In integration tests**, wait for the entry before the test ends (or turn the auditing off): a save that lands after the test dropped its database recreates it.
 
