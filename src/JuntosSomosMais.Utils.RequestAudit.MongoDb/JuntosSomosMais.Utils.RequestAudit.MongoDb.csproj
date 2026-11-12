@@ -7,7 +7,6 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <MinVerTagPrefix>requestaudit/v</MinVerTagPrefix>
-    <LangVersion>12</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <!-- Built against the 2.x line, which ships MongoDB.Driver.Core as its own assembly; 3.0 merged it into
