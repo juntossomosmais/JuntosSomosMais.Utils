@@ -50,7 +50,12 @@ public class MongoDbHealthCheck : IHealthCheck
             }
             else
             {
-                using var cursor = await _client.ListDatabaseNamesAsync(cancellationToken);
+                // Awaited as a plain Task: awaiting Task<IAsyncCursor<string>> would put a
+                // TaskAwaiter<IAsyncCursor<string>> struct in the state machine, and loading it needs the 2.x
+                // MongoDB.Driver.Core, so Assembly.GetTypes() on this package would throw on MongoDB.Driver 3.x.
+                var listing = _client.ListDatabaseNamesAsync(cancellationToken);
+                await (Task)listing;
+                using var cursor = listing.Result;
                 await cursor.MoveNextAsync(cancellationToken);
             }
 

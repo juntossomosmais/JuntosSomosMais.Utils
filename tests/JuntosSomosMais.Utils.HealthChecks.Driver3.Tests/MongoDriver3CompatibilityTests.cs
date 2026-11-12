@@ -1,9 +1,12 @@
 using Hangfire;
 using Hangfire.Storage;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using MongoDB.Driver;
 using Moq;
+using RabbitMQ.Client.Exceptions;
+using StackExchange.Redis;
 using Xunit;
 
 namespace JuntosSomosMais.Utils.HealthChecks.Driver3.Tests;
@@ -23,6 +26,19 @@ public class MongoDriver3CompatibilityTests
         // Assert
         Assert.NotNull(version);
         Assert.Equal(3, version.Major);
+    }
+
+    [Fact(DisplayName = "Should load every type of the package on MongoDB.Driver 3.x")]
+    public void GetTypes_PackageAssemblyOnDriver3_ShouldNotThrow()
+    {
+        // Arrange
+        var assembly = typeof(MongoDbHealthCheck).Assembly;
+
+        // Act
+        var exception = Record.Exception(() => assembly.GetTypes());
+
+        // Assert
+        Assert.Null(exception);
     }
 
     [Fact(DisplayName = "Should fail at registration when the MongoDB check is added on MongoDB.Driver 3.x")]
@@ -64,15 +80,10 @@ public class MongoDriver3CompatibilityTests
 
         // Assert
         Assert.Equal(HealthStatus.Healthy, report.Entries["hangfire"].Status);
-        foreach (var name in new[] { "sqlserver", "redis", "rabbitmq" })
-        {
-            // Nothing listens on port 1, so each check reports its connection failure, not an assembly load error.
-            var entry = report.Entries[name];
-            Assert.Equal(HealthStatus.Unhealthy, entry.Status);
-            Assert.NotNull(entry.Exception);
-            Assert.IsNotType<FileNotFoundException>(entry.Exception);
-            Assert.IsNotType<TypeLoadException>(entry.Exception);
-            Assert.IsNotType<MissingMethodException>(entry.Exception);
-        }
+        monitoringApi.Verify(m => m.FailedCount(), Times.Once());
+        // Nothing listens on port 1, so each check reports its own connection failure.
+        Assert.IsType<SqlException>(report.Entries["sqlserver"].Exception);
+        Assert.IsType<RedisConnectionException>(report.Entries["redis"].Exception);
+        Assert.IsType<BrokerUnreachableException>(report.Entries["rabbitmq"].Exception);
     }
 }
