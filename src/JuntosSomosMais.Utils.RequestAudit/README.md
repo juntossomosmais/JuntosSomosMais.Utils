@@ -56,7 +56,7 @@ Masking is by **name**: the key of a JSON property, form field, query parameter 
 
 | What | Rule |
 |---|---|
-| Headers in `SensitiveHeaders` | Exact name, ignoring case. Default: `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, `X-Auth-Token`, `X-Access-Token`, `Api-Key`, `Location`, `Content-Location` (an OAuth callback redirect carries `code` or `id_token`; this also hides the resource URL of a `201 Created`, so remove them if you need it). |
+| Headers in `SensitiveHeaders` | Exact name, ignoring case. Default: `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, `X-Auth-Token`, `X-Access-Token`, `Api-Key`, `Location`, `Content-Location`, `Ocp-Apim-Subscription-Key`, `X-Functions-Key` (an OAuth callback redirect carries `code` or `id_token`; this also hides the resource URL of a `201 Created`, so remove them if you need it). |
 | Fields in `SensitiveFields` (**exact**) | The normalized name equals the term, or its plural (`s`/`es`). Default: `cpf`, `cnpj`, `cpfcnpj`, `rg`, `document`, `documento`, `inscricaoestadual`, `email`, `phone`, `telephone`, `telefone`, `celular`, `mobile`, `whatsapp`, `address`, `endereco`, `logradouro`, `street`, `postalcode`, `zipcode`, `cep`, `district`, `bairro`, `birthdate`, `birthday`, `datanascimento`, `cardnumber`, `cvv`, `cvc`, `authorization`. |
 | Fields and headers containing one of `SensitiveNameParts` (**contains**) | The normalized name contains the term anywhere. Default: `password`, `senha`, `secret`, `token`, `apikey`, `cpf`, `cnpj`, `email`, `document`, `phone`, `telefone`, `celular`, `cardnumber`, `birth`, `nascimento`. |
 

@@ -41,7 +41,7 @@ public sealed class RequestAuditOptions
     public ISet<string> SensitiveHeaders { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "Authorization", "Proxy-Authorization", "Cookie", "Set-Cookie", "X-Api-Key", "X-Auth-Token", "X-Access-Token",
-        "Api-Key", "Location", "Content-Location",
+        "Api-Key", "Location", "Content-Location", "Ocp-Apim-Subscription-Key", "X-Functions-Key",
     };
 
     /// <summary>
