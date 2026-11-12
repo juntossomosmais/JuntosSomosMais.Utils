@@ -34,11 +34,14 @@ public sealed class RequestAuditOptions
     /// </summary>
     public string? ClientIpHeader { get; set; }
 
-    /// <summary>Headers whose value is masked, compared ignoring case.</summary>
+    /// <summary>
+    /// Headers whose value is masked, compared ignoring case. <c>Location</c> is in because an OAuth callback
+    /// redirect carries <c>code</c> or <c>id_token</c> in it.
+    /// </summary>
     public ISet<string> SensitiveHeaders { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "Authorization", "Proxy-Authorization", "Cookie", "Set-Cookie", "X-Api-Key", "X-Auth-Token", "X-Access-Token",
-        "Api-Key",
+        "Api-Key", "Location", "Content-Location",
     };
 
     /// <summary>

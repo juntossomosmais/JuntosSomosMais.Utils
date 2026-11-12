@@ -36,6 +36,23 @@ public class RequestAuditMaskerTests
     }
 
     [Fact]
+    public void MaskHeaders_RedirectLocationHeaders_AreMaskedByDefault()
+    {
+        // Arrange
+        var headers = new Dictionary<string, StringValues>
+        {
+            ["Location"] = "https://app.example/callback?code=abc&id_token=xyz",
+            ["content-location"] = "/orders/1?token=abc",
+        };
+
+        // Act
+        var masked = Masker.MaskHeaders(headers);
+
+        // Assert
+        Assert.Equal(new Dictionary<string, string> { ["Location"] = "***", ["content-location"] = "***" }, masked);
+    }
+
+    [Fact]
     public void MaskHeaders_CustomSensitiveHeader_IsMasked()
     {
         // Arrange

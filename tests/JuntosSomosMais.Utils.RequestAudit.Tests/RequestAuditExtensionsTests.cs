@@ -9,7 +9,7 @@ public class RequestAuditExtensionsTests
 
     private static readonly string[] DefaultSensitiveHeaders =
     [
-        "Api-Key", "Authorization", "Cookie", "Proxy-Authorization", "Set-Cookie", "X-Access-Token", "X-Api-Key",
+        "Api-Key", "Authorization", "Content-Location", "Cookie", "Location", "Proxy-Authorization", "Set-Cookie", "X-Access-Token", "X-Api-Key",
         "X-Auth-Token",
     ];
 
