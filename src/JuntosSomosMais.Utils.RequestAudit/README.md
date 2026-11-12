@@ -114,8 +114,9 @@ A body is stored only when it can be masked: JSON (`application/json`, `+json`) 
 - **The entry is saved after the response is sent** (`Response.OnCompleted`), so the caller does not wait for the store. On HTTP/1.1, the server reads the next request on the same connection only after the save, so a slow store can delay that request, but never longer than `SaveTimeout` (default 5 s): the save is then cancelled and the failure logged, even when the store ignores the cancellation.
 - **Auditing never breaks the request.** If the store fails, the error is logged and the response is unaffected.
 - **Responses written by an exception handler are recorded**, also when the handler is placed before this middleware.
+- **A request that cannot have a body (a GET without one) or whose content type cannot be masked is not read**, so it costs no buffer.
 - **The response is never buffered.** It is copied while it is written, up to `MaxBodyBytes`.
-- **The request body is never buffered beyond `MaxBodyBytes` + 1 bytes**, with or without `Content-Length`, and the endpoint reads the same bytes (a failed read is replayed to it too). A body that fits in `MaxBodyBytes` reaches the endpoint as a seekable stream; a larger one without `Content-Length` does not, so call `EnableBuffering()` before rewinding it, as without the audit.
+- **The request body is never buffered beyond `MaxBodyBytes` + 1 bytes**, with or without `Content-Length`, and the endpoint reads the same bytes (a failed read is replayed to it too). A body that fits in `MaxBodyBytes` reaches the endpoint as a seekable stream; a larger one does not, so call `EnableBuffering()` before rewinding it, as without the audit.
 - `Enabled = false` turns everything off without removing the middleware.
 - **In integration tests**, wait for the entry before the test ends (or turn the auditing off): a save that lands after the test dropped its database recreates it.
 

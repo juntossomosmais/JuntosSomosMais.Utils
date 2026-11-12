@@ -44,6 +44,8 @@ internal sealed class RequestAuditMasker(RequestAuditOptions options)
             pair => IsSensitiveField(pair.Key) ? Mask : pair.Value.ToString(),
             StringComparer.OrdinalIgnoreCase);
 
+    internal bool CanMask(string? contentType) => ReadKind(contentType) != BodyKind.Other;
+
     internal (string? Body, string? Note) MaskBody(string? contentType, byte[] body, bool truncated)
     {
         if (truncated)

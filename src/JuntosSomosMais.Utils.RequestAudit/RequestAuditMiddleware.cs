@@ -1,6 +1,7 @@
 using System.Runtime.ExceptionServices;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -145,6 +146,10 @@ public sealed class RequestAuditMiddleware(
         var limit = _options.MaxBodyBytes;
         if (request.ContentLength > limit)
             return _masker.MaskBody(contentType, [], truncated: true);
+        if (request.HttpContext.Features.Get<IHttpRequestBodyDetectionFeature>() is { CanHaveBody: false })
+            return (null, null);
+        if (!_masker.CanMask(contentType))
+            return (null, $"Not stored: content type '{contentType}' cannot be masked.");
 
         // One byte past the limit tells a body of exactly the limit from a larger one.
         var buffer = new byte[(int)Math.Min(request.ContentLength ?? long.MaxValue, limit + 1L)];

@@ -120,12 +120,12 @@ public class RequestAuditMiddlewareTests
         var entry = await host.Store.WaitForEntryAsync();
 
         // Assert
-        const string note = "Not stored: content type 'text/plain; charset=utf-8' cannot be masked (10 bytes).";
+        const string note = "Not stored: content type 'text/plain; charset=utf-8' cannot be masked";
         Assert.Equal("password=x", await response.Content.ReadAsStringAsync());
         Assert.Null(entry.RequestBody);
-        Assert.Equal(note, entry.RequestBodyNote);
+        Assert.Equal(note + ".", entry.RequestBodyNote);
         Assert.Null(entry.ResponseBody);
-        Assert.Equal(note, entry.ResponseBodyNote);
+        Assert.Equal(note + " (10 bytes).", entry.ResponseBodyNote);
     }
 
     [Fact]
@@ -1072,6 +1072,52 @@ public class RequestAuditMiddlewareTests
         Assert.NotNull(saved);
         Assert.Null(saved.RequestBody);
         Assert.Equal("Not stored: the request body could not be read.", saved.RequestBodyNote);
+    }
+
+    [Theory]
+    [InlineData(false, "application/json", null)]
+    [InlineData(true, "text/plain", "Not stored: content type 'text/plain' cannot be masked.")]
+    [InlineData(true, null, "Not stored: content type '' cannot be masked.")]
+    public async Task InvokeAsync_BodyThatWouldNotBeStored_IsNotRead(bool canHaveBody, string? contentType, string? expectedNote)
+    {
+        // Arrange
+        RequestAuditEntry? saved = null;
+        var store = new Mock<IRequestAuditStore>();
+        store.Setup(s => s.SaveAsync(It.IsAny<RequestAuditEntry>(), It.IsAny<CancellationToken>()))
+            .Callback<RequestAuditEntry, CancellationToken>((entry, _) => saved = entry)
+            .Returns(Task.CompletedTask);
+        var bodyDetection = new Mock<IHttpRequestBodyDetectionFeature>();
+        bodyDetection.Setup(feature => feature.CanHaveBody).Returns(canHaveBody);
+        var responseFeature = new CompletableResponseFeature();
+        var context = new DefaultHttpContext();
+        context.Features.Set<IHttpResponseFeature>(responseFeature);
+        context.Features.Set(bodyDetection.Object);
+        context.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(new AuditRequestAttribute()), "test"));
+        context.Request.Method = canHaveBody ? "POST" : "GET";
+        context.Request.ContentType = contentType;
+        var requestBody = new Mock<Stream>(MockBehavior.Strict).Object;
+        context.Request.Body = requestBody;
+        Stream? requestBodySeen = null;
+        var middleware = new RequestAuditMiddleware(
+            current =>
+            {
+                requestBodySeen = current.Request.Body;
+                return Task.CompletedTask;
+            },
+            store.Object,
+            Options.Create(new RequestAuditOptions()),
+            TimeProvider.System,
+            NullLogger<RequestAuditMiddleware>.Instance);
+
+        // Act
+        await middleware.InvokeAsync(context);
+        await responseFeature.CompleteAsync();
+
+        // Assert
+        Assert.Same(requestBody, requestBodySeen);
+        Assert.NotNull(saved);
+        Assert.Null(saved.RequestBody);
+        Assert.Equal(expectedNote, saved.RequestBodyNote);
     }
 
     private static StringContent Json(string body) => new(body, Encoding.UTF8, "application/json");
