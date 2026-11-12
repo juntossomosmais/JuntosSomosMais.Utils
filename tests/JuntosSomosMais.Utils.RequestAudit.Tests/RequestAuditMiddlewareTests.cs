@@ -675,6 +675,37 @@ public class RequestAuditMiddlewareTests
     }
 
     [Fact]
+    public async Task InvokeAsync_BodyWithoutContentLengthWithinTheLimit_ReachesTheEndpointSeekable()
+    {
+        // Arrange
+        var context = new DefaultHttpContext();
+        context.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(new AuditRequestAttribute()), "test"));
+        context.Request.Method = "POST";
+        context.Request.ContentType = "application/json";
+        context.Request.Body = new UnknownLengthStream("{}"u8.ToArray());
+        bool? seekable = null;
+        var received = string.Empty;
+        var middleware = new RequestAuditMiddleware(
+            async current =>
+            {
+                seekable = current.Request.Body.CanSeek;
+                using var reader = new StreamReader(current.Request.Body);
+                received = await reader.ReadToEndAsync();
+            },
+            Mock.Of<IRequestAuditStore>(),
+            Options.Create(new RequestAuditOptions()),
+            TimeProvider.System,
+            NullLogger<RequestAuditMiddleware>.Instance);
+
+        // Act
+        await middleware.InvokeAsync(context);
+
+        // Assert
+        Assert.True(seekable);
+        Assert.Equal("{}", received);
+    }
+
+    [Fact]
     public async Task InvokeAsync_RequestBodyFailsAfterSomeBytes_EndpointReadsThoseBytesThenTheSameFailure()
     {
         // Arrange
@@ -1052,14 +1083,22 @@ public class RequestAuditMiddlewareTests
         new InvalidDataException("The request body could not be decompressed."),
     };
 
-    /// <summary>Gives its data, then fails.</summary>
+    /// <summary>Gives its data, fails once, then reports the end.</summary>
     private sealed class BrokenStream(Exception failure, byte[] data) : MemoryStream(data)
     {
-        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
-            Position < Length ? base.ReadAsync(buffer, cancellationToken) : throw failure;
+        private bool _failed;
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (Position < Length || _failed)
+                return base.ReadAsync(buffer, cancellationToken);
+
+            _failed = true;
+            throw failure;
+        }
 
         public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
-            Position < Length ? base.ReadAsync(buffer, offset, count, cancellationToken) : throw failure;
+            ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
     }
 
     /// <summary>Response feature that runs the completion callbacks when the test says the response was sent.</summary>

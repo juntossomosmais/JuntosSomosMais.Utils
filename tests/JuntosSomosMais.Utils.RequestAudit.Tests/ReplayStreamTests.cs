@@ -43,6 +43,24 @@ public class ReplayStreamTests
     }
 
     [Fact]
+    public void Read_HeadThenFailure_ThrowsTheSameExceptionAfterTheHead()
+    {
+        // Arrange
+        var failure = new IOException("reset");
+        using var rest = new MemoryStream();
+        using var stream = new ReplayStream("ab"u8.ToArray(), rest, ExceptionDispatchInfo.Capture(failure));
+        var buffer = new byte[8];
+
+        // Act
+        var head = stream.Read(buffer, 0, buffer.Length);
+        var caught = Assert.Throws<IOException>(() => stream.Read(buffer, 0, buffer.Length));
+
+        // Assert
+        Assert.Equal(2, head);
+        Assert.Same(failure, caught);
+    }
+
+    [Fact]
     public void Members_Unsupported_Throw()
     {
         // Arrange

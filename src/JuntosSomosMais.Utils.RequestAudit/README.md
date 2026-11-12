@@ -56,7 +56,7 @@ Masking is by **name**: the key of a JSON property, form field, query parameter 
 
 | What | Rule |
 |---|---|
-| Headers in `SensitiveHeaders` | Exact name, ignoring case. Default: `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, `X-Auth-Token`, `X-Access-Token`, `Api-Key`, `Location`, `Content-Location`. |
+| Headers in `SensitiveHeaders` | Exact name, ignoring case. Default: `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, `X-Auth-Token`, `X-Access-Token`, `Api-Key`, `Location`, `Content-Location` (an OAuth callback redirect carries `code` or `id_token`; this also hides the resource URL of a `201 Created`, so remove them if you need it). |
 | Fields in `SensitiveFields` (**exact**) | The normalized name equals the term, or its plural (`s`/`es`). Default: `cpf`, `cnpj`, `cpfcnpj`, `rg`, `document`, `documento`, `inscricaoestadual`, `email`, `phone`, `telephone`, `telefone`, `celular`, `mobile`, `whatsapp`, `address`, `endereco`, `logradouro`, `street`, `postalcode`, `zipcode`, `cep`, `district`, `bairro`, `birthdate`, `birthday`, `datanascimento`, `cardnumber`, `cvv`, `cvc`, `authorization`. |
 | Fields and headers containing one of `SensitiveNameParts` (**contains**) | The normalized name contains the term anywhere. Default: `password`, `senha`, `secret`, `token`, `apikey`, `cpf`, `cnpj`, `email`, `document`, `phone`, `telefone`, `celular`, `cardnumber`, `birth`, `nascimento`. |
 
@@ -93,7 +93,7 @@ Not masked:
 - the URL path (only the query string goes through the field rules), so keep secrets out of route values;
 - the `Referer` header, which can carry another page's query string; add it to `SensitiveHeaders` if that matters.
 
-`CallerClaims` matches claim types as they are on the `ClaimsPrincipal`. The exception is `sub`: when the principal has no `sub` (JwtBearer's default `MapInboundClaims = true` renames it to `ClaimTypes.NameIdentifier`), that claim is read instead and still stored as `sub`. A real `sub` wins.
+`CallerClaims` matches claim types as they are on the `ClaimsPrincipal`. The exception is `sub`: when the principal has no `sub` (JwtBearer's default `MapInboundClaims = true` renames it to `ClaimTypes.NameIdentifier`), that claim is read instead and still stored as `sub`, whatever the authentication scheme. A real `sub` wins.
 
 ## Bodies
 
@@ -115,7 +115,7 @@ A body is stored only when it can be masked: JSON (`application/json`, `+json`) 
 - **Auditing never breaks the request.** If the store fails, the error is logged and the response is unaffected.
 - **Responses written by an exception handler are recorded**, also when the handler is placed before this middleware.
 - **The response is never buffered.** It is copied while it is written, up to `MaxBodyBytes`.
-- **The request body is never buffered beyond `MaxBodyBytes` + 1 bytes**, with or without `Content-Length`, and the endpoint reads it unchanged (a failed read is replayed to it too).
+- **The request body is never buffered beyond `MaxBodyBytes` + 1 bytes**, with or without `Content-Length`, and the endpoint reads the same bytes (a failed read is replayed to it too). A body that fits in `MaxBodyBytes` reaches the endpoint as a seekable stream; a larger one without `Content-Length` does not, so call `EnableBuffering()` before rewinding it, as without the audit.
 - `Enabled = false` turns everything off without removing the middleware.
 - **In integration tests**, wait for the entry before the test ends (or turn the auditing off): a save that lands after the test dropped its database recreates it.
 

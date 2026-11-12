@@ -129,7 +129,7 @@ internal sealed class RequestAuditTestHost : IAsyncDisposable
         await context.Response.WriteAsync(body);
     }
 
-    // What model binding does after a middleware that reads the body: buffer, read, rewind, then bind the form.
+    // An endpoint that buffers, reads, rewinds, then binds the form.
     private static async Task RereadAsync(HttpContext context)
     {
         context.Request.EnableBuffering();
