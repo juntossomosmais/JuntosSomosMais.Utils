@@ -53,7 +53,7 @@ public class CustomExceptionHandler : IExceptionHandler
         Exception exception,
         CancellationToken cancellationToken)
     {
-        var endpoint = httpContext.GetEndpoint();
+        var endpoint = httpContext.Features.Get<IExceptionHandlerFeature>()?.Endpoint ?? httpContext.GetEndpoint();
         if (endpoint?.Metadata.GetMetadata<IgnoreCustomExceptionAttribute>() is not null)
             return false;
 
