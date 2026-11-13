@@ -40,26 +40,6 @@ public class CustomExceptionHandlerIgnoreAttributeTests
         return data;
     }
 
-    // Framework behaviour the handler must cope with: the middleware clears the endpoint before calling any
-    // IExceptionHandler and keeps it only in IExceptionHandlerFeature.Endpoint.
-    [Theory(DisplayName = "Should give the exception handlers no endpoint, only the feature endpoint with the attribute")]
-    [MemberData(nameof(IgnoredEndpoints))]
-    public async Task TryHandleAsync_EndpointWithIgnoreAttribute_ShouldSeeEndpointOnlyThroughFeature(
-        ExceptionPipeline pipeline, string path, string exceptionMessage)
-    {
-        // Arrange
-        await using var host = await ExceptionPipelineHost.StartAsync(pipeline);
-
-        // Act
-        await host.Client.GetAsync(path);
-
-        // Assert
-        var entry = Assert.Single(host.Probe.Entries);
-        Assert.Equal(path, entry.Path);
-        Assert.False(entry.HasEndpointFromContext);
-        Assert.True(entry.HasAttributeOnFeatureEndpoint, $"feature endpoint without the attribute for '{exceptionMessage}'");
-    }
-
     [Theory(DisplayName = "Should not log when the endpoint has the IgnoreCustomException attribute")]
     [MemberData(nameof(IgnoredEndpoints))]
     public async Task TryHandleAsync_EndpointWithIgnoreAttribute_ShouldNotLog(

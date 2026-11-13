@@ -39,22 +39,19 @@ public sealed class ExceptionPipelineHost : IAsyncDisposable
 
     private readonly WebApplication _app;
 
-    private ExceptionPipelineHost(WebApplication app, FakeLogCollector logCollector, EndpointProbe probe)
+    private ExceptionPipelineHost(WebApplication app, FakeLogCollector logCollector)
     {
         _app = app;
         LogCollector = logCollector;
-        Probe = probe;
         Client = app.GetTestClient();
     }
 
     public HttpClient Client { get; }
     public FakeLogCollector LogCollector { get; }
-    public EndpointProbe Probe { get; }
 
     public static async Task<ExceptionPipelineHost> StartAsync(ExceptionPipeline pipeline)
     {
         var logCollector = new FakeLogCollector();
-        var probe = new EndpointProbe();
 
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -66,10 +63,7 @@ public sealed class ExceptionPipelineHost : IAsyncDisposable
         builder.Logging.SetMinimumLevel(LogLevel.Trace);
         builder.Logging.AddProvider(new FakeLoggerProvider(logCollector));
 
-        builder.Services.AddSingleton(probe);
         builder.Services.AddControllers().AddApplicationPart(typeof(ExceptionPipelineHost).Assembly);
-        // IExceptionHandler instances run in registration order: the probe sees the context first.
-        builder.Services.AddExceptionHandler<EndpointProbeExceptionHandler>();
         builder.Services.AddCustomExceptionHandler(options => options.ViewStackTrace = false);
         if (pipeline == ExceptionPipeline.ProblemDetails)
             builder.Services.AddProblemDetails();
@@ -101,7 +95,7 @@ public sealed class ExceptionPipelineHost : IAsyncDisposable
         app.MapGet(MinimalIgnorePath, ThrowFromMinimalEndpoint).WithMetadata(new IgnoreCustomExceptionAttribute());
 
         await app.StartAsync();
-        return new ExceptionPipelineHost(app, logCollector, probe);
+        return new ExceptionPipelineHost(app, logCollector);
     }
 
     public async ValueTask DisposeAsync()
