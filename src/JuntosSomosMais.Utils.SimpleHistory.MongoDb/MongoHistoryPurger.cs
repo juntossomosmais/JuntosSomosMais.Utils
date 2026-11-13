@@ -1,3 +1,4 @@
+using JuntosSomosMais.Utils.Shared;
 using MongoDB.Bson;
 using MongoDB.Driver;
 namespace JuntosSomosMais.Utils.SimpleHistory.MongoDb;
@@ -14,17 +15,8 @@ public sealed class MongoHistoryPurger(IMongoDatabase database, TimeProvider? ti
         ArgumentNullException.ThrowIfNull(sources);
         ArgumentNullException.ThrowIfNull(request);
 
-        var from = ToUtc(request.FromUtc, nameof(request.FromUtc));
-        var to = ToUtc(request.ToUtc, nameof(request.ToUtc));
-        if (from is null && to is null)
-            throw new ArgumentException("At least one of FromUtc or ToUtc is required: the purger never deletes every row.", nameof(request));
-        if (request.BatchSize <= 0)
-            throw new ArgumentException("BatchSize must be positive.", nameof(request));
-
-        var pinnedTo = to ?? (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
-        if (from >= pinnedTo)
-            throw new ArgumentException(
-                to is null ? "FromUtc must be before the start of the purge." : "FromUtc must be before ToUtc.", nameof(request));
+        var (from, pinnedTo) = PurgeInterval.Resolve(
+            request.FromUtc, request.ToUtc, request.BatchSize, timeProvider, "row", nameof(request));
 
         var list = sources.ToList();
         foreach (var source in list)
@@ -83,12 +75,4 @@ public sealed class MongoHistoryPurger(IMongoDatabase database, TimeProvider? ti
             filters.Add(builder.Lt(nameof(HistoryEntry.HistoryDate), toUtc.Value));
         return builder.And(filters);
     }
-
-    private static DateTime? ToUtc(DateTime? value, string name) => value?.Kind switch
-    {
-        null => null,
-        DateTimeKind.Utc => value,
-        DateTimeKind.Local => value.Value.ToUniversalTime(),
-        _ => throw new ArgumentException($"{name} must have DateTimeKind Utc or Local, not Unspecified.", name),
-    };
 }

@@ -29,6 +29,10 @@
     <ProjectReference Include="..\JuntosSomosMais.Utils.SimpleHistory\JuntosSomosMais.Utils.SimpleHistory.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Internal source shared with the sibling package (each assembly compiles its own copy). -->
+    <Compile Include="..\Shared\PurgeInterval.cs" Link="Shared\PurgeInterval.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>

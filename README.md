@@ -12,6 +12,8 @@ Opinionated configurations and utilities for .NET projects at Juntos Somos Mais.
 | [JuntosSomosMais.Utils.Cnpj](https://www.nuget.org/packages/JuntosSomosMais.Utils.Cnpj/) | CNPJ validator supporting both the classic numeric format and the new alphanumeric format introduced in July 2026. |
 | [JuntosSomosMais.Utils.SimpleHistory](https://www.nuget.org/packages/JuntosSomosMais.Utils.SimpleHistory/) | Provider-neutral core of SimpleHistory, a django-simple-history analogue for .NET: options, tracked-source builder, hosted service, health check and purge command. |
 | [JuntosSomosMais.Utils.SimpleHistory.MongoDb](https://www.nuget.org/packages/JuntosSomosMais.Utils.SimpleHistory.MongoDb/) | MongoDB provider of SimpleHistory: change stream based history rows for MongoDB collections. |
+| [JuntosSomosMais.Utils.RequestAudit](https://www.nuget.org/packages/JuntosSomosMais.Utils.RequestAudit/) | Opt-in HTTP request auditing for ASP.NET Core: who called an endpoint, with what and what was answered, masked before it is stored. |
+| [JuntosSomosMais.Utils.RequestAudit.MongoDb](https://www.nuget.org/packages/JuntosSomosMais.Utils.RequestAudit.MongoDb/) | MongoDB provider of RequestAudit: one document per audited request, with a batched purge for retention. |
 
 ### Target frameworks
 
@@ -34,6 +36,7 @@ dotnet add package JuntosSomosMais.Utils.HealthChecks
 dotnet add package JuntosSomosMais.Utils.Instrumentation
 dotnet add package JuntosSomosMais.Utils.Cnpj
 dotnet add package JuntosSomosMais.Utils.SimpleHistory.MongoDb
+dotnet add package JuntosSomosMais.Utils.RequestAudit.MongoDb
 ```
 
 ## JuntosSomosMais.Utils.HealthChecks
@@ -790,3 +793,10 @@ Keeps a history of every change to tracked database records, like [django-simple
 
 - Core concepts, row shape, health check and purge: [src/JuntosSomosMais.Utils.SimpleHistory/README.md](src/JuntosSomosMais.Utils.SimpleHistory/README.md)
 - MongoDB setup, registration, replay and operational notes: [src/JuntosSomosMais.Utils.SimpleHistory.MongoDb/README.md](src/JuntosSomosMais.Utils.SimpleHistory.MongoDb/README.md)
+
+## JuntosSomosMais.Utils.RequestAudit
+
+Stores one entry per request to the endpoints marked with `[AuditRequest]`: caller, request, response and status, with sensitive headers and fields masked before they are stored. The core package is storage-neutral; `JuntosSomosMais.Utils.RequestAudit.MongoDb` is the MongoDB provider.
+
+- Setup, masking rules, entry fields and behavior: [src/JuntosSomosMais.Utils.RequestAudit/README.md](src/JuntosSomosMais.Utils.RequestAudit/README.md)
+- MongoDB registration, indexes, purge and document shape: [src/JuntosSomosMais.Utils.RequestAudit.MongoDb/README.md](src/JuntosSomosMais.Utils.RequestAudit.MongoDb/README.md)
