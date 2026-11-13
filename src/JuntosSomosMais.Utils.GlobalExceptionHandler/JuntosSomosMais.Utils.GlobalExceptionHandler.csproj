@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>JuntosSomosMais.Utils.GlobalExceptionHandler</RootNamespace>
-    <Description>ASP.NET Core 8+ IExceptionHandler-based global exception handler providing structured JSON responses.</Description>
+    <Description>ASP.NET Core 10 IExceptionHandler-based global exception handler providing structured JSON responses.</Description>
     <PackageId>JuntosSomosMais.Utils.GlobalExceptionHandler</PackageId>
     <PackageTags>exception handler aspnetcore global</PackageTags>
     <MinVerTagPrefix>globalexceptionhandler/v</MinVerTagPrefix>

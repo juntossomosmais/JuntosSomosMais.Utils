@@ -5,6 +5,9 @@
     <PackageId>JuntosSomosMais.Utils.HealthChecks</PackageId>
     <PackageTags>healthcheck aspnetcore sqlserver redis rabbitmq hangfire azureblobstorage azureservicebus mongodb elasticsearch</PackageTags>
     <MinVerTagPrefix>healthchecks/v</MinVerTagPrefix>
+    <!-- Ships the XML docs so IntelliSense shows them. Most public members have none yet, hence no CS1591. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="JuntosSomosMais.Utils.HealthChecks.Tests" />
@@ -20,9 +23,10 @@
     <PackageReference Include="Azure.Storage.Blobs" Version="12.27.0" />
     <PackageReference Include="Hangfire.Core" Version="1.8.23" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.3" />
-    <!-- Built against the 2.x line, which ships MongoDB.Driver.Core as its own assembly; 3.0 merged it into
-         MongoDB.Driver, so this build would fail to load there. The upper bound makes NuGet warn at install time. -->
-    <PackageReference Include="MongoDB.Driver" Version="[2.30.0,3.0.0)" />
+    <!-- Built against 2.x, where MongoDB.Driver.Core is a separate assembly (3.0 merged it), so only the MongoDB
+         check breaks on 3.x. No upper bound on purpose: a capped range makes restore fail (NU1107) for services
+         that get 3.x transitively and never register the MongoDB check. -->
+    <PackageReference Include="MongoDB.Driver" Version="2.30.0" />
     <PackageReference Include="NRedisStack" Version="0.13.3" />
     <PackageReference Include="RabbitMQ.Client" Version="7.2.1" />
     <!-- Transitive floors with known vulnerabilities, pinned to the fixed versions until the parents move past them:

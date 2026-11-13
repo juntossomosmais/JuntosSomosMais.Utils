@@ -6,7 +6,7 @@ Opinionated configurations and utilities for .NET projects at Juntos Somos Mais.
 
 | Package | Description |
 |---|---|
-| [JuntosSomosMais.Utils.GlobalExceptionHandler](https://www.nuget.org/packages/JuntosSomosMais.Utils.GlobalExceptionHandler/) | ASP.NET Core 8+ global exception handler built on the native `IExceptionHandler` infrastructure. |
+| [JuntosSomosMais.Utils.GlobalExceptionHandler](https://www.nuget.org/packages/JuntosSomosMais.Utils.GlobalExceptionHandler/) | ASP.NET Core 10 global exception handler built on the native `IExceptionHandler` infrastructure. |
 | [JuntosSomosMais.Utils.HealthChecks](https://www.nuget.org/packages/JuntosSomosMais.Utils.HealthChecks/) | Reusable health checks for SQL Server, Redis, RabbitMQ, Hangfire, Azure Blob Storage, Azure Service Bus, MongoDB, Elasticsearch, and a standardized JSON response writer. |
 | [JuntosSomosMais.Utils.Instrumentation](https://www.nuget.org/packages/JuntosSomosMais.Utils.Instrumentation/) | FluentValidation instrumentation for ASP.NET Core APIs and Ziggurat message pipelines. |
 | [JuntosSomosMais.Utils.Cnpj](https://www.nuget.org/packages/JuntosSomosMais.Utils.Cnpj/) | CNPJ validator supporting both the classic numeric format and the new alphanumeric format introduced in July 2026. |
@@ -15,18 +15,16 @@ Opinionated configurations and utilities for .NET projects at Juntos Somos Mais.
 
 ### Target frameworks
 
-Every package ships a build per framework, and NuGet picks the one that matches the consuming app, so an app on .NET 8 keeps getting the `net8.0` build after it updates the package, and an app on .NET 10 gets the `net10.0` one.
+Every package targets `net10.0` only. Services still on .NET 8 keep the last version published with a `net8.0` build until they move to .NET 10:
 
-| Package | Target frameworks | Notable dependencies |
+| Package | Last version for .NET 8 | Notable dependencies |
 |---|---|---|
-| `JuntosSomosMais.Utils.GlobalExceptionHandler` | `net8.0`, `net10.0` | ASP.NET Core shared framework, `FluentValidation` 11+ |
-| `JuntosSomosMais.Utils.HealthChecks` | `net8.0`, `net10.0` | `MongoDB.Driver` **2.x** (`[2.30.0, 3.0.0)`, see [Requirements](#requirements)), `RabbitMQ.Client` 7, `Microsoft.Data.SqlClient` 5+ |
-| `JuntosSomosMais.Utils.Instrumentation` | `net8.0`, `net10.0` | `FluentValidation` 11+, `JuntosSomosMais.Ziggurat` |
-| `JuntosSomosMais.Utils.Cnpj` | `net8.0`, `net10.0` | none |
-| `JuntosSomosMais.Utils.SimpleHistory` | `net6.0`, `net8.0`, `net10.0` | `Microsoft.Extensions.*` 8.x on `net6.0`/`net8.0`, 10.x on `net10.0` |
-| `JuntosSomosMais.Utils.SimpleHistory.MongoDb` | `net6.0`, `net8.0`, `net10.0` | `MongoDB.Driver` **2.x** (`[2.29.0, 3.0.0)`) |
-
-The test suite runs once per framework (`net8.0` and `net10.0`), so both builds are verified on every pull request.
+| `JuntosSomosMais.Utils.GlobalExceptionHandler` | `0.1.0-test.8` | ASP.NET Core shared framework, `FluentValidation` 11+ |
+| `JuntosSomosMais.Utils.HealthChecks` | `0.1.0-test.9` | `MongoDB.Driver` 2.30.0+ (the MongoDB check needs **2.x**, see [Requirements](#requirements)), `RabbitMQ.Client` 7, `Microsoft.Data.SqlClient` 5+ |
+| `JuntosSomosMais.Utils.Instrumentation` | `0.1.0-test.9` | `FluentValidation` 11+, `JuntosSomosMais.Ziggurat` |
+| `JuntosSomosMais.Utils.Cnpj` | `0.2.0` | none |
+| `JuntosSomosMais.Utils.SimpleHistory` | `0.1.0` | `Microsoft.Extensions.*` 8.x in `0.1.0`, 10.x after it |
+| `JuntosSomosMais.Utils.SimpleHistory.MongoDb` | `0.1.0` | `MongoDB.Driver` **2.x** (`[2.29.0, 3.0.0)`) |
 
 Install via CLI:
 
@@ -44,9 +42,9 @@ Provides reusable `IHealthCheck` implementations and a standardized JSON respons
 
 ### Requirements
 
-- .NET 8 or .NET 10
+- .NET 10
 - Dependencies are pulled transitively: `Hangfire.Core`, `Microsoft.Data.SqlClient`, `RabbitMQ.Client`, `NRedisStack`, `Azure.Storage.Blobs`, `Azure.Messaging.ServiceBus`, `MongoDB.Driver`
-- `MongoDB.Driver` **2.x**. The package is compiled against the 2.x line, where `MongoDB.Driver.Core` is a separate assembly; 3.0 merged it into `MongoDB.Driver`. A service that references `MongoDB.Driver` 3.x would fail with `FileNotFoundException: MongoDB.Driver.Core` as soon as a health check runs, on .NET 8 and .NET 10 alike, so the dependency is declared as `[2.30.0, 3.0.0)` and NuGet warns (NU1608) when a service on 3.x installs the package. Support for 3.x will come as a separate release.
+- `MongoDB.Driver` **2.x** for the MongoDB check. The package is compiled against the 2.x line, where `MongoDB.Driver.Core` is a separate assembly; 3.0 merged it into `MongoDB.Driver`. On a service that resolves `MongoDB.Driver` 3.x, `AddMongoDbHealthCheck` throws `NotSupportedException` at startup, when the check is registered; the other checks are not affected. The dependency has no upper bound on purpose: services that get `MongoDB.Driver` 3.x from another package and register only the other checks keep restoring and running. Support for 3.x in the MongoDB check will come as a separate release.
 
 ### Available health checks
 
@@ -131,7 +129,7 @@ Provides two FluentValidation-based validation components that can be shared acr
 
 ### Requirements
 
-- .NET 8 or .NET 10
+- .NET 10
 - `FluentValidation` v11+
 - `JuntosSomosMais.Ziggurat` v0.1.0+ (for message validation)
 
@@ -220,8 +218,8 @@ Catches unhandled exceptions and returns a consistent, user-friendly JSON respon
 
 ### Requirements
 
-- .NET 8 or .NET 10
-- ASP.NET Core 8 or 10
+- .NET 10
+- ASP.NET Core 10
 
 The package includes `FluentValidation` (v11.\*) as a transitive dependency. If your project uses a newer version (e.g., v12.x), keep your direct `FluentValidation` package reference -- NuGet will resolve to the higher version automatically without conflicts.
 
@@ -238,7 +236,7 @@ builder.Services.AddProblemDetails();
 app.UseExceptionHandler();
 ```
 
-> **Important:** `AddProblemDetails()` is required. ASP.NET Core 8's `ExceptionHandlerMiddlewareImpl` needs `IProblemDetailsService` registered when no `ExceptionHandlingPath` or `ExceptionHandler` delegate is set. Without it, `UseExceptionHandler()` throws `InvalidOperationException` at startup.
+> **Important:** `AddProblemDetails()` is required. ASP.NET Core's `ExceptionHandlerMiddlewareImpl` needs `IProblemDetailsService` registered when no `ExceptionHandlingPath` or `ExceptionHandler` delegate is set. Without it, `UseExceptionHandler()` throws `InvalidOperationException` at startup.
 
 A single call to `AddCustomExceptionHandler()` configures:
 
@@ -575,7 +573,7 @@ Every handled exception is logged via `ILogger<CustomExceptionHandler>`: at `Err
 - `Message` — the exception message
 - The full exception object (stack trace included regardless of `ViewStackTrace`)
 
-The handler's own log is the same on .NET 8 and .NET 10. What changes between them is the framework's `ExceptionHandlerMiddleware`:
+The handler's own log did not change from .NET 8 to .NET 10. What changed is the framework's `ExceptionHandlerMiddleware`:
 
 - On .NET 8 it always reports the exception: before calling the handlers it logs "An unhandled exception has occurred while executing the request." at `Error` level and adds the exception type as the `error.type` tag of the `http.server.request.duration` metric, and once a handler handles it, it writes the `Microsoft.AspNetCore.Diagnostics.HandledException` diagnostic event. Services set `"Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware": "Fatal"` in the Serilog `MinimumLevel.Override` to keep that log entry out of the error logs.
 - On .NET 10 all three are skipped by default when a handler returns `true`, so both 4xx and 5xx responses lose the `error.type` tag on the metric (the status code only shows up on the span).
@@ -672,7 +670,7 @@ Validates Brazilian CNPJs in both the classic all-numeric format and the new alp
 
 ### Requirements
 
-- .NET 8 or .NET 10
+- .NET 10
 - No additional dependencies
 
 ### Available methods
