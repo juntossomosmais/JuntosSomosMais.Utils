@@ -53,7 +53,6 @@ public class CustomExceptionHandler : IExceptionHandler
         Exception exception,
         CancellationToken cancellationToken)
     {
-        // UseExceptionHandler clears the request endpoint before calling the handlers and keeps it only in the feature.
         var endpoint = httpContext.Features.Get<IExceptionHandlerFeature>()?.Endpoint ?? httpContext.GetEndpoint();
         if (endpoint?.Metadata.GetMetadata<IgnoreCustomExceptionAttribute>() is not null)
             return false;
