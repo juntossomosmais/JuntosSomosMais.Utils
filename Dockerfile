@@ -1,9 +1,5 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0
 
-# The libraries multi-target net8.0 and net10.0, and so do the test projects: the .NET 8 runtimes run the net8.0
-# leg of the suite (and the dotnet-script/sonarscanner tools) next to the SDK's own .NET 10 runtimes.
-COPY --from=mcr.microsoft.com/dotnet/aspnet:8.0 /usr/share/dotnet/shared /usr/share/dotnet/shared
-
 WORKDIR /app
 
 # Restores (downloads) all NuGet packages on a separate layer for caching
@@ -16,6 +12,7 @@ COPY src/JuntosSomosMais.Utils.Instrumentation/*.csproj src/JuntosSomosMais.Util
 COPY tests/JuntosSomosMais.Utils.Instrumentation.Tests/*.csproj tests/JuntosSomosMais.Utils.Instrumentation.Tests/packages.lock.json tests/JuntosSomosMais.Utils.Instrumentation.Tests/
 COPY src/JuntosSomosMais.Utils.HealthChecks/*.csproj src/JuntosSomosMais.Utils.HealthChecks/packages.lock.json src/JuntosSomosMais.Utils.HealthChecks/
 COPY tests/JuntosSomosMais.Utils.HealthChecks.Tests/*.csproj tests/JuntosSomosMais.Utils.HealthChecks.Tests/packages.lock.json tests/JuntosSomosMais.Utils.HealthChecks.Tests/
+COPY tests/JuntosSomosMais.Utils.HealthChecks.Driver3.Tests/*.csproj tests/JuntosSomosMais.Utils.HealthChecks.Driver3.Tests/packages.lock.json tests/JuntosSomosMais.Utils.HealthChecks.Driver3.Tests/
 COPY src/JuntosSomosMais.Utils.Cnpj/*.csproj src/JuntosSomosMais.Utils.Cnpj/packages.lock.json src/JuntosSomosMais.Utils.Cnpj/
 COPY tests/JuntosSomosMais.Utils.Cnpj.Tests/*.csproj tests/JuntosSomosMais.Utils.Cnpj.Tests/packages.lock.json tests/JuntosSomosMais.Utils.Cnpj.Tests/
 COPY src/JuntosSomosMais.Utils.SimpleHistory/*.csproj src/JuntosSomosMais.Utils.SimpleHistory/packages.lock.json src/JuntosSomosMais.Utils.SimpleHistory/

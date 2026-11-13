@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Loads the package's 2.x-compiled assembly next to MongoDB.Driver 3.x. NU1608 as an error fails restore if the
+       package caps MongoDB.Driver below 3.0. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <WarningsAsErrors>$(WarningsAsErrors);NU1608</WarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="MongoDB.Driver" Version="3.1.0" />
+    <PackageReference Include="Moq" Version="4.20.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\JuntosSomosMais.Utils.HealthChecks\JuntosSomosMais.Utils.HealthChecks.csproj" />
+  </ItemGroup>
+</Project>

@@ -89,9 +89,8 @@ public class CustomExceptionHandlerLogLevelTests : IClassFixture<LoggingWebAppFa
         Assert.Equal(LogLevel.Error, entry.Level);
     }
 
-    // The handler entry must be the same on .NET 8 and .NET 10; the framework middleware entry is what differs.
-    [Fact(DisplayName = "Should write the handler entry and the framework-specific middleware entry for a handled 4xx")]
-    public async Task TryHandleAsync_HandledNotFoundException_ShouldLogHandlerEntryOnEveryFramework()
+    [Fact(DisplayName = "Should write only the handler entry for a handled 4xx")]
+    public async Task TryHandleAsync_HandledNotFoundException_ShouldLogOnlyHandlerEntry()
     {
         // Arrange
         const string exceptionMessage = "Customer not found";
@@ -105,11 +104,11 @@ public class CustomExceptionHandlerLogLevelTests : IClassFixture<LoggingWebAppFa
             e.CategoryName == HandlerCategory && e.Message.Contains(exceptionMessage));
         Assert.Equal(LogLevel.Debug, handlerEntry.Level);
         Assert.Equal(exceptionMessage, handlerEntry.Exception?.Message);
-        AssertMiddlewareEntryForHandledException(exceptionMessage);
+        AssertNoMiddlewareEntryForHandledException(exceptionMessage);
     }
 
-    [Fact(DisplayName = "Should write the handler Error entry and the framework-specific middleware entry for a handled 5xx")]
-    public async Task TryHandleAsync_HandledUnattributedException_ShouldLogHandlerErrorOnEveryFramework()
+    [Fact(DisplayName = "Should write only the handler Error entry for a handled 5xx")]
+    public async Task TryHandleAsync_HandledUnattributedException_ShouldLogOnlyHandlerError()
     {
         // Arrange
         const string exceptionMessage = "Custom exception message";
@@ -123,27 +122,20 @@ public class CustomExceptionHandlerLogLevelTests : IClassFixture<LoggingWebAppFa
             e.CategoryName == HandlerCategory && e.Message.Contains(exceptionMessage));
         Assert.Equal(LogLevel.Error, handlerEntry.Level);
         Assert.Equal(exceptionMessage, handlerEntry.Exception?.Message);
-        AssertMiddlewareEntryForHandledException(exceptionMessage);
+        AssertNoMiddlewareEntryForHandledException(exceptionMessage);
     }
 
-    private void AssertMiddlewareEntryForHandledException(string exceptionMessage)
+    private void AssertNoMiddlewareEntryForHandledException(string exceptionMessage)
     {
         var middlewareEntries = _logCollector.Entries
             .Where(e => e.CategoryName == MiddlewareCategory && e.Exception?.Message == exceptionMessage)
             .ToList();
 
-#if NET10_0_OR_GREATER
         // .NET 10 suppresses the middleware diagnostics when an IExceptionHandler returns true.
         Assert.Empty(middlewareEntries);
-#else
-        // .NET 8 logs the exception at Error before calling the handlers; services silence it with a Fatal override.
-        var middlewareEntry = Assert.Single(middlewareEntries);
-        Assert.Equal(LogLevel.Error, middlewareEntry.Level);
-#endif
     }
 
-#if NET10_0_OR_GREATER
-    // With SuppressDiagnosticsCallback returning false, .NET 10 emits the middleware entry again, as .NET 8 does.
+    // With SuppressDiagnosticsCallback returning false, the middleware entry is emitted.
     public class WithDiagnosticsKept : IClassFixture<KeepDiagnosticsWebAppFactory>
     {
         private readonly HttpClient _client;
@@ -175,5 +167,4 @@ public class CustomExceptionHandlerLogLevelTests : IClassFixture<LoggingWebAppFa
             Assert.Equal(LogLevel.Error, middlewareEntry.Level);
         }
     }
-#endif
 }
