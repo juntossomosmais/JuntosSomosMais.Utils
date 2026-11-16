@@ -116,7 +116,7 @@ A body is stored only when it can be masked: JSON (`application/json`, `+json`) 
 - **Responses written by an exception handler are recorded**, also when the handler is placed before this middleware.
 - **A request that cannot have a body (a GET without one) or whose content type cannot be masked is not read**, so it costs no buffer.
 - **The response is never buffered.** It is copied while it is written, up to `MaxBodyBytes`.
-- **The request body is never buffered beyond `MaxBodyBytes` + 1 bytes**, with or without `Content-Length`, and the endpoint reads the same bytes (a failed read is replayed to it too). A body that fits in `MaxBodyBytes` reaches the endpoint as a seekable stream; a larger one does not, so call `EnableBuffering()` before rewinding it, as without the audit.
+- **The request body is never buffered beyond `MaxBodyBytes` + 1 bytes**, with or without `Content-Length`, and the endpoint reads the same bytes (a failed read is replayed to it too). A JSON or form body that fits in `MaxBodyBytes` reaches the endpoint as a seekable stream; any other body does not, so call `EnableBuffering()` before rewinding it, as without the audit.
 - `Enabled = false` turns everything off without removing the middleware.
 - **In integration tests**, wait for the entry before the test ends (or turn the auditing off): a save that lands after the test dropped its database recreates it.
 
