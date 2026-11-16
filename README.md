@@ -563,7 +563,10 @@ public class WebhookController : ControllerBase { ... }
 public IActionResult Internal() { ... }
 ```
 
-When the attribute is present, `TryHandleAsync` returns `false` and the framework continues to the next registered exception handler.
+When the attribute is present, `TryHandleAsync` returns `false` and the framework continues to the next registered exception handler. If no handler returns `true`:
+
+- The response body is whatever the `UseExceptionHandler` fallback writes (the `ExceptionHandler` delegate, the `ExceptionHandlingPath` endpoint or ProblemDetails), not the `UNEXPECTED_ERROR` JSON.
+- The exception is not logged by `CustomExceptionHandler`. The framework's `ExceptionHandlerMiddleware` logs it instead, with "An unhandled exception has occurred while executing the request." at `Error` level. A service that sets `"Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware": "Fatal"` (see [Logging](#logging)) gets no `Error` log for these endpoints unless the fallback logs the exception itself.
 
 ### Logging
 
