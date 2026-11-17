@@ -8,6 +8,7 @@ on:
       - 'instrumentation/v[0-9]+.[0-9]+.[0-9]+*'
       - 'cnpj/v[0-9]+.[0-9]+.[0-9]+*'
       - 'simplehistory/v[0-9]+.[0-9]+.[0-9]+*'
+      - 'requestaudit/v[0-9]+.[0-9]+.[0-9]+*'
 
 permissions:
   contents: read
@@ -51,6 +52,9 @@ jobs:
               ;;
             simplehistory)
               PROJECT="src/JuntosSomosMais.Utils.SimpleHistory/JuntosSomosMais.Utils.SimpleHistory.csproj src/JuntosSomosMais.Utils.SimpleHistory.MongoDb/JuntosSomosMais.Utils.SimpleHistory.MongoDb.csproj"
+              ;;
+            requestaudit)
+              PROJECT="src/JuntosSomosMais.Utils.RequestAudit/JuntosSomosMais.Utils.RequestAudit.csproj src/JuntosSomosMais.Utils.RequestAudit.MongoDb/JuntosSomosMais.Utils.RequestAudit.MongoDb.csproj"
               ;;
             *)
               echo "::error::Unknown package prefix '$PREFIX' in tag '$TAG_NAME'"

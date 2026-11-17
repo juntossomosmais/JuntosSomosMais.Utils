@@ -33,6 +33,14 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.Simpl
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.HealthChecks.Driver3.Tests", "tests\JuntosSomosMais.Utils.HealthChecks.Driver3.Tests\JuntosSomosMais.Utils.HealthChecks.Driver3.Tests.csproj", "{30768822-BA9F-4307-B468-66AC4495927E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.RequestAudit", "src\JuntosSomosMais.Utils.RequestAudit\JuntosSomosMais.Utils.RequestAudit.csproj", "{E88D7850-153F-43E2-BA7A-9414FD016D24}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.RequestAudit.MongoDb", "src\JuntosSomosMais.Utils.RequestAudit.MongoDb\JuntosSomosMais.Utils.RequestAudit.MongoDb.csproj", "{52732094-62B3-4107-9C37-40082415DD8E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.RequestAudit.Tests", "tests\JuntosSomosMais.Utils.RequestAudit.Tests\JuntosSomosMais.Utils.RequestAudit.Tests.csproj", "{CDF7E514-AF9C-4BC9-A66B-0DA338ED5A9E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JuntosSomosMais.Utils.RequestAudit.MongoDb.Tests", "tests\JuntosSomosMais.Utils.RequestAudit.MongoDb.Tests\JuntosSomosMais.Utils.RequestAudit.MongoDb.Tests.csproj", "{0809EBBE-3DE0-4DA2-A317-C2BD037C99E9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -94,6 +102,22 @@ Global
 		{30768822-BA9F-4307-B468-66AC4495927E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{30768822-BA9F-4307-B468-66AC4495927E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{30768822-BA9F-4307-B468-66AC4495927E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E88D7850-153F-43E2-BA7A-9414FD016D24}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E88D7850-153F-43E2-BA7A-9414FD016D24}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E88D7850-153F-43E2-BA7A-9414FD016D24}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E88D7850-153F-43E2-BA7A-9414FD016D24}.Release|Any CPU.Build.0 = Release|Any CPU
+		{52732094-62B3-4107-9C37-40082415DD8E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{52732094-62B3-4107-9C37-40082415DD8E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{52732094-62B3-4107-9C37-40082415DD8E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{52732094-62B3-4107-9C37-40082415DD8E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CDF7E514-AF9C-4BC9-A66B-0DA338ED5A9E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CDF7E514-AF9C-4BC9-A66B-0DA338ED5A9E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CDF7E514-AF9C-4BC9-A66B-0DA338ED5A9E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CDF7E514-AF9C-4BC9-A66B-0DA338ED5A9E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0809EBBE-3DE0-4DA2-A317-C2BD037C99E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0809EBBE-3DE0-4DA2-A317-C2BD037C99E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0809EBBE-3DE0-4DA2-A317-C2BD037C99E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0809EBBE-3DE0-4DA2-A317-C2BD037C99E9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{9ACA7FDE-FED8-4338-AE87-58570D2F83BD} = {1ED936F9-0D06-4A85-B506-D260BA77E0FB}
@@ -109,5 +133,9 @@ Global
 		{FC6E7434-C77A-4100-9F73-DD253AAD6DFA} = {4F7F46B7-3CAE-4AE2-A31D-0E3157E5D2B5}
 		{0699906A-2A38-4C20-9E5E-D2B170C131AB} = {4F7F46B7-3CAE-4AE2-A31D-0E3157E5D2B5}
 		{30768822-BA9F-4307-B468-66AC4495927E} = {4F7F46B7-3CAE-4AE2-A31D-0E3157E5D2B5}
+		{E88D7850-153F-43E2-BA7A-9414FD016D24} = {1ED936F9-0D06-4A85-B506-D260BA77E0FB}
+		{52732094-62B3-4107-9C37-40082415DD8E} = {1ED936F9-0D06-4A85-B506-D260BA77E0FB}
+		{CDF7E514-AF9C-4BC9-A66B-0DA338ED5A9E} = {4F7F46B7-3CAE-4AE2-A31D-0E3157E5D2B5}
+		{0809EBBE-3DE0-4DA2-A317-C2BD037C99E9} = {4F7F46B7-3CAE-4AE2-A31D-0E3157E5D2B5}
 	EndGlobalSection
 EndGlobal
