@@ -17,7 +17,7 @@ Opinionated configurations and utilities for .NET projects at Juntos Somos Mais.
 
 ### Target frameworks
 
-Every package targets `net10.0` only. Services still on .NET 8 keep the last version published with a `net8.0` build until they move to .NET 10:
+Every package targets `net10.0` only, except `JuntosSomosMais.Utils.RequestAudit` and `JuntosSomosMais.Utils.RequestAudit.MongoDb`, which target both `net8.0` and `net10.0`. Services still on .NET 8 keep the last version published with a `net8.0` build of the other packages until they move to .NET 10:
 
 | Package | Last version for .NET 8 | Notable dependencies |
 |---|---|---|
@@ -799,7 +799,7 @@ Keeps a history of every change to tracked database records, like [django-simple
 
 ## JuntosSomosMais.Utils.RequestAudit
 
-Stores one entry per request to the endpoints marked with `[AuditRequest]`: caller, request, response and status, with sensitive headers and fields masked before they are stored. The core package is storage-neutral; `JuntosSomosMais.Utils.RequestAudit.MongoDb` is the MongoDB provider.
+Stores one entry per request to the endpoints marked with `[AuditRequest]`: caller, request, response and status, with sensitive headers and fields masked before they are stored. The core package is storage-neutral; `JuntosSomosMais.Utils.RequestAudit.MongoDb` is the MongoDB provider. Both target .NET 8 and .NET 10.
 
 - Setup, masking rules, entry fields and behavior: [src/JuntosSomosMais.Utils.RequestAudit/README.md](src/JuntosSomosMais.Utils.RequestAudit/README.md)
 - MongoDB registration, indexes, purge and document shape: [src/JuntosSomosMais.Utils.RequestAudit.MongoDb/README.md](src/JuntosSomosMais.Utils.RequestAudit.MongoDb/README.md)

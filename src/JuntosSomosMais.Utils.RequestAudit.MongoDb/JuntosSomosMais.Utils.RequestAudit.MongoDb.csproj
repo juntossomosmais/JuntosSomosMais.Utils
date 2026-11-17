@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <!-- Also built for .NET 8: services still on it can adopt the auditing without moving to .NET 10 first.
+         Directory.Build.props sets TargetFramework; it is cleared so TargetFrameworks applies. -->
+    <TargetFramework></TargetFramework>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <RootNamespace>JuntosSomosMais.Utils.RequestAudit.MongoDb</RootNamespace>
     <Description>MongoDB provider of RequestAudit: one document per audited HTTP request, with a batched purge for retention.</Description>
     <PackageId>JuntosSomosMais.Utils.RequestAudit.MongoDb</PackageId>

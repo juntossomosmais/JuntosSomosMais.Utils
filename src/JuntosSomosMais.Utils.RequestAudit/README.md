@@ -4,6 +4,8 @@ Opt-in HTTP request auditing for ASP.NET Core. For every request to an endpoint 
 
 This is the provider-neutral core. To store the entries in MongoDB, add [JuntosSomosMais.Utils.RequestAudit.MongoDb](../JuntosSomosMais.Utils.RequestAudit.MongoDb/README.md).
 
+Targets .NET 8 and .NET 10.
+
 ## Setup
 
 ```csharp

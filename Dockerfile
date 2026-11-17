@@ -1,5 +1,8 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0
 
+# The ASP.NET Core 8 runtime runs the RequestAudit tests on their net8.0 target.
+RUN curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --runtime aspnetcore --channel 8.0 --install-dir /usr/share/dotnet
+
 WORKDIR /app
 
 # Restores (downloads) all NuGet packages on a separate layer for caching
