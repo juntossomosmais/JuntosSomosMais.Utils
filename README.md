@@ -17,7 +17,7 @@ Opinionated configurations and utilities for .NET projects at Juntos Somos Mais.
 
 ### Target frameworks
 
-Every package targets `net10.0` only, except `JuntosSomosMais.Utils.RequestAudit` and `JuntosSomosMais.Utils.RequestAudit.MongoDb`, which target both `net8.0` and `net10.0`. Services still on .NET 8 keep the last version published with a `net8.0` build of the other packages until they move to .NET 10:
+Every package targets `net10.0` only, except `JuntosSomosMais.Utils.RequestAudit` and `JuntosSomosMais.Utils.RequestAudit.MongoDb`, which target both `net8.0` and `net10.0` for now: the `net8.0` build is temporary and the release after this one goes back to `net10.0` only. Services still on .NET 8 keep the last version published with a `net8.0` build of the other packages until they move to .NET 10:
 
 | Package | Last version for .NET 8 | Notable dependencies |
 |---|---|---|
