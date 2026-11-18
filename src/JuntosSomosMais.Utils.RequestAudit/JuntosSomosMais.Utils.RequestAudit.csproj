@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <!-- Also built for .NET 8: services still on it can adopt the auditing without moving to .NET 10 first.
+         Directory.Build.props sets TargetFramework; it is cleared so TargetFrameworks applies. -->
+    <TargetFramework></TargetFramework>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <RootNamespace>JuntosSomosMais.Utils.RequestAudit</RootNamespace>
     <Description>Opt-in HTTP request auditing for ASP.NET Core: records who called an endpoint, with what and what was answered, masking sensitive data before it is stored. Storage is pluggable.</Description>
     <PackageId>JuntosSomosMais.Utils.RequestAudit</PackageId>

@@ -1,5 +1,8 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0
 
+# The ASP.NET Core 8 runtime runs the RequestAudit tests on their net8.0 target.
+COPY --from=mcr.microsoft.com/dotnet/aspnet:8.0 /usr/share/dotnet/shared /usr/share/dotnet/shared
+
 WORKDIR /app
 
 # Restores (downloads) all NuGet packages on a separate layer for caching
